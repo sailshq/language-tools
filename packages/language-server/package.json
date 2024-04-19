@@ -1,0 +1,16 @@
+{
+  "name": "@sailshq/language-server",
+  "version": "0.0.0",
+  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sailshq/language-tools",
+    "directory": "packages/language-server"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Kelvin Omereshone",
+  "license": "MIT"
+}

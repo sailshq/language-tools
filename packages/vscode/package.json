@@ -1,0 +1,31 @@
+{
+  "name": "sails-vscode",
+  "displayName": "Sails",
+  "version": "0.0.0",
+  "description": "Language support for Sails",
+  "main": "index.js",
+  "publisher": "dominuskelvin",
+  "categories": ["Programming Languages", "Formatters", "Linters"],
+  "qna": false,
+  "keywords": [
+    "sails",
+    "node",
+    "typescript",
+    "javascript",
+    "react",
+    "vue",
+    "svelte"
+  ],
+  "devDependencies": {},
+  "activationEvents": ["workspaceContains:.sailsrc"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sailshq/language-tools.git",
+    "directory": "packages/vscode"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Kelvin Omereshone",
+  "license": "MIT"
+}

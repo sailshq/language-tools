@@ -1,0 +1,8 @@
+{
+  "name": "language-tools",
+  "private": "true",
+  "workspaces": [
+    "packages/language-server",
+    "packages/vscode"
+  ]
+}
