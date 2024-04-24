@@ -5,7 +5,11 @@
   "description": "Language support for Sails",
   "main": "index.js",
   "publisher": "sails",
-  "categories": ["Programming Languages", "Formatters", "Linters"],
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Linters"
+  ],
   "qna": false,
   "keywords": [
     "sails",
@@ -21,11 +25,21 @@
   },
   "icon": "assets/icon.png",
   "galleryBanner": {
-		"color": "#14acc2",
-		"theme": "dark"
-	},
-  "devDependencies": {},
-  "activationEvents": ["workspaceContains:.sailsrc"],
+    "color": "#14acc2",
+    "theme": "dark"
+  },
+  "devDependencies": {
+    "@sailshq/language-server": "^0.0.0",
+    "@types/vscode": "^1.88.0",
+    "@volar/language-server": "^2.1.6",
+    "@volar/vscode": "^2.1.6",
+    "esbuild": "^0.20.2",
+    "vsce": "^2.15.0",
+    "vscode-languageclient": "^9.0.1"
+  },
+  "activationEvents": [
+    "workspaceContains:.sailsrc"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/sailshq/language-tools.git",
