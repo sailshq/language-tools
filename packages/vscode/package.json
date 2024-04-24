@@ -16,6 +16,9 @@
     "vue",
     "svelte"
   ],
+  "sponsor": {
+    "url": "https://github.com/sponsors/dominuskelvin"
+  },
   "devDependencies": {},
   "activationEvents": ["workspaceContains:.sailsrc"],
   "repository": {
