@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "description": "Language support for Sails",
   "main": "index.js",
-  "publisher": "dominuskelvin",
+  "publisher": "sails",
   "categories": ["Programming Languages", "Formatters", "Linters"],
   "qna": false,
   "keywords": [
