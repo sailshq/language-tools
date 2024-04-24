@@ -19,6 +19,11 @@
   "sponsor": {
     "url": "https://github.com/sponsors/dominuskelvin"
   },
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+		"color": "#14acc2",
+		"theme": "dark"
+	},
   "devDependencies": {},
   "activationEvents": ["workspaceContains:.sailsrc"],
   "repository": {
