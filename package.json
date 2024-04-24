@@ -2,13 +2,17 @@
   "name": "language-tools",
   "private": "true",
   "scripts": {
-		"build": "cd ./packages/vscode && npm run build",
-		"watch": "cd ./packages/vscode && npm run watch",
-		"pack": "cd ./packages/vscode && npm run pack",
-		"release": "cd ./packages/vscode && npm run release"
-	},
+    "build": "cd ./packages/vscode && npm run build",
+    "watch": "cd ./packages/vscode && npm run watch",
+    "pack": "cd ./packages/vscode && npm run pack",
+    "release": "cd ./packages/vscode && npm run release"
+  },
   "workspaces": [
     "packages/language-server",
     "packages/vscode"
-  ]
+  ],
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "typescript": "^5.4.5"
+  }
 }
