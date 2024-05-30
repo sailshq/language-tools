@@ -5,7 +5,8 @@
     "build": "cd ./packages/vscode && npm run build",
     "watch": "cd ./packages/vscode && npm run watch",
     "pack": "cd ./packages/vscode && npm run pack",
-    "release": "cd ./packages/vscode && npm run release"
+    "release": "cd ./packages/vscode && npm run release",
+    "prepare": "husky"
   },
   "workspaces": [
     "packages/language-server",
@@ -13,6 +14,12 @@
   ],
   "devDependencies": {
     "@types/node": "^20.12.7",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.5",
+    "prettier": "^3.2.5",
     "typescript": "^5.4.5"
+  },
+  "lint-staged": {
+    "**/*": "prettier --write --ignore-unknown"
   }
 }
