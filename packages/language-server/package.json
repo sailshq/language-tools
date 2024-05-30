@@ -21,8 +21,8 @@
   "author": "Kelvin Omereshone",
   "license": "MIT",
   "dependencies": {
-    "@volar/language-core": "^2.1.6",
-    "@volar/language-server": "^2.1.6",
-    "@volar/language-service": "^2.1.6"
+    "@volar/language-core": "^2.2.5",
+    "@volar/language-server": "^2.2.5",
+    "@volar/language-service": "^2.2.5"
   }
 }
