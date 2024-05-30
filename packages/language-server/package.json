@@ -24,5 +24,8 @@
     "@volar/language-core": "^2.2.5",
     "@volar/language-server": "^2.2.5",
     "@volar/language-service": "^2.2.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.13"
   }
 }
