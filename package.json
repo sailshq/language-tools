@@ -6,13 +6,16 @@
     "watch": "cd ./packages/vscode && npm run watch",
     "pack": "cd ./packages/vscode && npm run pack",
     "release": "cd ./packages/vscode && npm run release",
-    "prepare": "husky"
+    "prepare": "husky",
+    "commitlint": "commitlint --edit"
   },
   "workspaces": [
     "packages/language-server",
     "packages/vscode"
   ],
   "devDependencies": {
+    "@commitlint/cli": "^19.3.0",
+    "@commitlint/config-conventional": "^19.2.2",
     "@types/node": "^20.12.7",
     "husky": "^9.0.11",
     "lint-staged": "^15.2.5",
