@@ -1,9 +1,11 @@
 {
+  "private": "true",
   "name": "sails-vscode",
   "displayName": "Sails",
   "version": "0.0.0",
   "description": "Language support for Sails",
-  "main": "index.js",
+  "main": "./dist/client.js",
+  "author": "Kelvin Omereshone",
   "publisher": "sails",
   "categories": [
     "Programming Languages",
@@ -11,6 +13,9 @@
     "Linters"
   ],
   "qna": false,
+  "engines": {
+    "vscode": "^1.82.0"
+  },
   "keywords": [
     "sails",
     "node",
@@ -51,6 +56,5 @@
     "url": "https://github.com/sailshq/language-tools.git",
     "directory": "packages/vscode"
   },
-  "author": "Kelvin Omereshone",
   "license": "MIT"
 }
