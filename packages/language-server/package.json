@@ -8,27 +8,16 @@
     "url": "https://github.com/sailshq/language-tools",
     "directory": "packages/language-server"
   },
-  "main": "out/index.js",
-  "files": [
-    "out/**/*.js",
-    "out/**/*.d.ts"
-  ],
-  "bin": {
-    "sails-language-server": "./bin/sails-language-server.js"
-  },
+  "main": "index.js",
   "scripts": {
+    "start": "node server.js",
+    "watch": "node --watch server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Kelvin Omereshone",
   "license": "MIT",
   "dependencies": {
-    "@volar/language-core": "^2.2.5",
-    "@volar/language-server": "^2.2.5",
-    "@volar/language-service": "^2.2.5",
-    "volar-service-typescript": "^0.0.47"
-  },
-  "devDependencies": {
-    "@types/node": "^20.12.13",
-    "vscode-languageserver-textdocument": "^1.0.11"
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
   }
 }
