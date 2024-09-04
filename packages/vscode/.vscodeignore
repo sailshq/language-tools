@@ -3,3 +3,4 @@ node_modules
 dist/*.map
 src/
 rspack.config.js
+dist/.rsdoctor
