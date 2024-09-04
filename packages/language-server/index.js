@@ -1,8 +1,7 @@
 const lsp = require('vscode-languageserver')
 const TextDocument = require('vscode-languageserver-textdocument').TextDocument
-const {
-  validateMigrationStrategy
-} = require('./validators/migration-strategy-validator')
+const validateMigrationStrategy = require('./validators/validate-auto-migration-strategy')
+const validateAutomigrationStrategy = require('./validators/validate-auto-migration-strategy')
 
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
@@ -12,7 +11,6 @@ connection.onInitialize((params) => {
   return {
     capabilities: {
       textDocumentSync: lsp.TextDocumentSyncKind.Incremental,
-      diagnosticProvider: {},
       completionProvider: {
         resolveProvider: true,
         triggerCharacters: ['.']
@@ -32,8 +30,10 @@ documents.onDidChangeContent((change) => {
 function validateDocument(document) {
   const diagnostics = []
 
-  if (document.uri.endsWith('config/models.js')) {
-    const modelDiagnostics = validateMigrationStrategy(document)
+  const migrationFiles = ['config/models.js', 'api/models/', 'config/env/']
+
+  if (migrationFiles.some((file) => document.uri.includes(file))) {
+    const modelDiagnostics = validateAutomigrationStrategy(document)
     diagnostics.push(...modelDiagnostics)
   }
 
