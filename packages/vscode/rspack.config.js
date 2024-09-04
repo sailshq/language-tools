@@ -2,7 +2,7 @@ const { RsdoctorRspackPlugin } = require('@rsdoctor/rspack-plugin')
 
 module.exports = {
   target: 'node',
-  entry: './src/client.js',
+  entry: './src/index.js',
   output: {
     path: './dist',
     filename: 'extension.js',
