@@ -1,10 +1,10 @@
 {
   "private": "true",
-  "name": "sails-vscode",
+  "name": "vscode",
   "displayName": "Sails",
   "version": "0.0.0",
   "description": "Language support for Sails",
-  "main": "./dist/extension.js",
+  "main": "./src/index.js",
   "author": "Kelvin Omereshone",
   "publisher": "sails",
   "categories": [
@@ -34,7 +34,6 @@
     "theme": "dark"
   },
   "scripts": {
-    "start": "node client.js",
     "pack": "npm run vscode:prepublish && vsce package",
     "publish": "vsce publish",
     "vscode:prepublish": "rspack build --mode production",
@@ -44,7 +43,6 @@
   },
   "devDependencies": {
     "@rsdoctor/rspack-plugin": "^0.4.1",
-    "@sailshq/language-server": "^0.0.0",
     "@types/node": "^22.5.2",
     "@types/vscode": "^1.82.0",
     "@vscode/vsce": "^3.0.0"
@@ -71,6 +69,13 @@
         ],
         "configuration": "./languages/ejs-language-configuration.json"
       }
+    ],
+    "grammars": [
+      {
+        "language": "ejs",
+        "scopeName": "text.html.ejs",
+        "path": "./syntaxes/ejs.tmLanguage.json"
+      }
     ]
   },
   "repository": {
@@ -82,6 +87,7 @@
   "dependencies": {
     "@rspack/cli": "^1.0.1",
     "@rspack/core": "^1.0.1",
+    "@sailshq/language-server": "file:../language-server/sailshq-language-server-0.0.0.tgz",
     "vscode-languageclient": "^9.0.1"
   },
   "vsce": {
