@@ -9,6 +9,9 @@
     "directory": "packages/language-server"
   },
   "main": "index.js",
+  "bin": {
+    "sails-language-server": "./bin/sails-language-server.js"
+  },
   "scripts": {
     "start": "node server.js",
     "watch": "node --watch server.js",
