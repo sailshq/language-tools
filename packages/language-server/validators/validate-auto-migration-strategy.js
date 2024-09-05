@@ -2,7 +2,13 @@ const lsp = require('vscode-languageserver')
 
 module.exports = function validateAutomigrationStrategy(document) {
   const text = document.getText()
+
+  const migrationFiles = ['config/models.js', 'api/models/', 'config/env/']
   const diagnostics = []
+
+  if (!migrationFiles.some((file) => document.uri.includes(file))) {
+    return diagnostics
+  }
 
   const migrateRegex = /^\s*migrate:\s*['"](\w+)['"]\s*,?\s*$/m
 
