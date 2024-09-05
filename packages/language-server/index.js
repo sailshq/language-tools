@@ -1,45 +1,42 @@
-const lsp = require('vscode-languageserver')
+const lsp = require('vscode-languageserver/node')
 const TextDocument = require('vscode-languageserver-textdocument').TextDocument
-const validateMigrationStrategy = require('./validators/validate-auto-migration-strategy')
-const validateAutomigrationStrategy = require('./validators/validate-auto-migration-strategy')
+const validateDocument = require('./validators/validate-document')
+const goToAction = require('./go-to-definitions/go-to-action')
 
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
 
-// Initialize the server
 connection.onInitialize((params) => {
   return {
     capabilities: {
       textDocumentSync: lsp.TextDocumentSyncKind.Incremental,
+      definitionProvider: true,
       completionProvider: {
         resolveProvider: true,
-        triggerCharacters: ['.']
+        triggerCharacters: ['"', "'", '.']
       }
     }
   }
 })
 
 documents.onDidOpen((open) => {
-  validateDocument(open.document)
+  validateDocument(connection, open.document)
 })
 
 documents.onDidChangeContent((change) => {
-  validateDocument(change.document)
+  validateDocument(connection, change.document)
 })
 
-function validateDocument(document) {
-  const diagnostics = []
-
-  const migrationFiles = ['config/models.js', 'api/models/', 'config/env/']
-
-  if (migrationFiles.some((file) => document.uri.includes(file))) {
-    const modelDiagnostics = validateAutomigrationStrategy(document)
-    diagnostics.push(...modelDiagnostics)
+connection.onDefinition(async (params) => {
+  const document = documents.get(params.textDocument.uri)
+  if (!document) {
+    return null
   }
-
-  connection.sendDiagnostics({ uri: document.uri, diagnostics })
-}
+  const definitions = []
+  const actionDefinitions = await goToAction(document, params.position)
+  definitions.push(actionDefinitions)
+  return definitions || null
+})
 
 documents.listen(connection)
-
 connection.listen()
