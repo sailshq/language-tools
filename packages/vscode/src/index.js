@@ -20,6 +20,11 @@ function activate(context) {
   const clientOptions = {
     documentSelector: [
       { scheme: 'file', language: 'javascript' },
+      {
+        scheme: 'file',
+        language: 'javascript',
+        pattern: '**/config/routes.js'
+      },
       { scheme: 'file', language: 'ejs' }
     ]
   }
@@ -41,7 +46,34 @@ function activate(context) {
     )
     console.error('Language client start error:', error)
   })
-
+  context.subscriptions.push(
+    vscode.languages.registerDefinitionProvider(
+      { language: 'javascript', pattern: '**/config/routes.js' },
+      {
+        provideDefinition(document, position, token) {
+          return client
+            .sendRequest('textDocument/definition', {
+              textDocument: { uri: document.uri.toString() },
+              position: { line: position.line, character: position.character }
+            })
+            .then((location) => {
+              if (location) {
+                return new vscode.Location(
+                  vscode.Uri.parse(location.uri),
+                  new vscode.Range(
+                    location.range.start.line,
+                    location.range.start.character,
+                    location.range.end.line,
+                    location.range.end.character
+                  )
+                )
+              }
+              return null
+            })
+        }
+      }
+    )
+  )
   context.subscriptions.push(client)
 }
 
