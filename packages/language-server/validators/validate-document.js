@@ -1,14 +1,13 @@
 const validateAutomigrationStrategy = require('./validate-auto-migration-strategy')
+const validateActionExist = require('./validate-action-exist')
 
 module.exports = function validateDocument(connection, document) {
   const diagnostics = []
 
-  const migrationFiles = ['config/models.js', 'api/models/', 'config/env/']
+  const modelDiagnostics = validateAutomigrationStrategy(document)
+  const actionDiagnostics = validateActionExist(document)
 
-  if (migrationFiles.some((file) => document.uri.includes(file))) {
-    const modelDiagnostics = validateAutomigrationStrategy(document)
-    diagnostics.push(...modelDiagnostics)
-  }
+  diagnostics.push(...modelDiagnostics, ...actionDiagnostics)
 
   connection.sendDiagnostics({ uri: document.uri, diagnostics })
 }
