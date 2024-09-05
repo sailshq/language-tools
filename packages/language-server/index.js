@@ -10,11 +10,11 @@ connection.onInitialize((params) => {
   return {
     capabilities: {
       textDocumentSync: lsp.TextDocumentSyncKind.Incremental,
-      definitionProvider: true,
-      completionProvider: {
-        resolveProvider: true,
-        triggerCharacters: ['"', "'", '.']
-      }
+      definitionProvider: true
+      // completionProvider: {
+      //   resolveProvider: true,
+      //   triggerCharacters: ['"', "'", '.']
+      // }
     }
   }
 })
