@@ -2,7 +2,7 @@
   "private": "true",
   "name": "vscode",
   "displayName": "Sails",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Language support for Sails",
   "main": "./src/index.js",
   "author": "Kelvin Omereshone",
@@ -87,7 +87,7 @@
   "dependencies": {
     "@rspack/cli": "^1.0.1",
     "@rspack/core": "^1.0.1",
-    "@sailshq/language-server": "file:../language-server/sailshq-language-server-0.0.0.tgz",
+    "@sailshq/language-server": "^0.0.1",
     "vscode-languageclient": "^9.0.1"
   },
   "vsce": {
