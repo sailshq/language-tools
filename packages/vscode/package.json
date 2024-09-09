@@ -1,0 +1,96 @@
+{
+  "private": "true",
+  "name": "vscode",
+  "displayName": "Sails",
+  "version": "0.0.1",
+  "description": "Language support for Sails",
+  "main": "./src/index.js",
+  "author": "Kelvin Omereshone",
+  "publisher": "sails",
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Linters"
+  ],
+  "qna": false,
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "keywords": [
+    "sails",
+    "node",
+    "typescript",
+    "javascript",
+    "react",
+    "vue",
+    "svelte"
+  ],
+  "sponsor": {
+    "url": "https://github.com/sponsors/dominuskelvin"
+  },
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#14acc2",
+    "theme": "dark"
+  },
+  "scripts": {
+    "pack": "npm run vscode:prepublish && vsce package",
+    "publish": "vsce publish",
+    "vscode:prepublish": "rspack build --mode production",
+    "build": "rspack build",
+    "watch": "rspack build --watch",
+    "doctor": "RSDOCTOR=true npm run build"
+  },
+  "devDependencies": {
+    "@rsdoctor/rspack-plugin": "^0.4.1",
+    "@types/node": "^22.5.2",
+    "@types/vscode": "^1.82.0",
+    "@vscode/vsce": "^3.0.0"
+  },
+  "activationEvents": [
+    "workspaceContains:.sailsrc"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "javascript",
+        "extensions": [
+          ".js"
+        ]
+      },
+      {
+        "id": "ejs",
+        "extensions": [
+          ".ejs"
+        ],
+        "aliases": [
+          "EJS",
+          "Embedded JavaScript"
+        ],
+        "configuration": "./languages/ejs-language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ejs",
+        "scopeName": "text.html.ejs",
+        "path": "./syntaxes/ejs.tmLanguage.json"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sailshq/language-tools.git",
+    "directory": "packages/vscode"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@rspack/cli": "^1.0.1",
+    "@rspack/core": "^1.0.1",
+    "@sailshq/language-server": "^0.0.1",
+    "vscode-languageclient": "^9.0.1"
+  },
+  "vsce": {
+    "dependencies": false
+  }
+}

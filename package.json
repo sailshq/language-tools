@@ -1,0 +1,25 @@
+{
+  "name": "language-tools",
+  "private": "true",
+  "scripts": {
+    "watch": "cd ./packages/vscode && npm run watch",
+    "pack": "cd ./packages/vscode && npm run pack",
+    "publish": "cd ./packages/vscode && npm run publish",
+    "prepare": "husky",
+    "commitlint": "commitlint --edit"
+  },
+  "workspaces": [
+    "packages/language-server",
+    "packages/vscode"
+  ],
+  "devDependencies": {
+    "@commitlint/cli": "^19.3.0",
+    "@commitlint/config-conventional": "^19.2.2",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.5",
+    "prettier": "^3.2.5"
+  },
+  "lint-staged": {
+    "**/*": "prettier --write --ignore-unknown"
+  }
+}

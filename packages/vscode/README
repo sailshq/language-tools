@@ -1,0 +1,71 @@
+# Sails.js support for Visual Studio Code
+
+> ⛵ Not sure what Sails.js is? Check out the official website at [sailsjs.com](https://sailsjs.com)!
+
+Provides enhanced support for Sails.js projects in Visual Studio Code. This extension is powered by a custom language server tailored for Sails.js development.
+
+## Features
+
+- [Diagnostic messages](https://code.visualstudio.com/docs/editor/editingevolved#_errors-warnings) for Sails.js configuration and common pitfalls
+- [IntelliSense](https://code.visualstudio.com/docs/editor/intellisense) completions for Sails.js APIs and lifecycle callbacks
+- [Emmet completions](https://code.visualstudio.com/docs/editor/emmet) in EJS templates
+- Attribute completions for Sails.js model definitions
+- [Code actions](https://code.visualstudio.com/docs/editor/editingevolved#_code-action) (quick fixes, generate actions, etc.)
+- [Formatting](https://code.visualstudio.com/docs/editor/codebasics#_formatting) (powered by [Prettier](https://prettier.io/))
+- [Symbols](https://code.visualstudio.com/docs/editor/editingevolved#_go-to-symbol) for easy navigation in Sails.js project structure
+- [Hover information](https://code.visualstudio.com/Docs/languages/javascript#_hover-information) for Sails.js specific APIs and configurations
+- [Go to Definition](https://code.visualstudio.com/docs/editor/editingevolved#_go-to-definition) for actions, models, and helpers
+- [Inlay hints](https://code.visualstudio.com/docs/editor/editingevolved#_inlay-hints) for Waterline query methods
+- [Code folding](https://code.visualstudio.com/docs/editor/codebasics#_folding) for Sails.js configuration files
+- Snippets for common Sails.js patterns (e.g., controller actions, model definitions)
+- Command palette actions for Sails.js CLI commands (e.g., generate api, lift server)
+- Debugging support for Sails.js applications
+- Blueprint API awareness and autocompletion
+- Policy and middleware insights
+- Route visualization and navigation
+- Waterline ORM query builder assistance
+- Integration with Sails.js hooks and plugins
+- Performance insights for Sails.js best practices
+- and more!
+
+## Configuration
+
+Sails.js specific settings can be configured through the `sails` namespace. For example, blueprint API suggestions can be disabled using `'sails.suggestions.blueprints': false`. Formatting can be configured through [Prettier's different configuration methods](https://prettier.io/docs/en/configuration.html).
+
+## Sails.js Project Structure
+
+This extension provides enhanced support for the standard Sails.js project structure:
+
+- `api/`
+  - `controllers/`
+  - `models/`
+  - `policies/`
+  - `services/`
+  - `helpers/`
+- `config/`
+- `views/`
+
+For more information on the Sails.js project structure, visit the [Sails.js documentation](https://sailsjs.com/documentation/anatomy).
+
+## Troubleshooting
+
+### Go to Definition doesn't work for custom actions
+
+Make sure your actions follow the Sails.js naming conventions and are placed in the correct directories. For example, `api/controllers/user/create.js` for a `user/create` action.
+
+### Snippets are not showing up
+
+Ensure that you have `.js` files open and that you're working within a recognized Sails.js project structure.
+
+### Command palette actions for Sails.js CLI are not available
+
+Verify that you have the Sails.js CLI installed globally (`npm install -g sails`) and that your project root contains a `package.json` file with Sails.js as a dependency.
+
+## Additional Resources
+
+- [Sails.js Documentation](https://sailsjs.com/documentation)
+- [Sails.js Guides](https://sailsjs.com/documentation/concepts)
+- [Sails.js GitHub Repository](https://github.com/balderdashy/sails)
+- [Sails Discord Community](https://sailscasts.com/chat)
+
+For more detailed information on using Sails.js, please refer to the [official Sails.js documentation](https://sailsjs.com/documentation).

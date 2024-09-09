@@ -1,0 +1,26 @@
+{
+  "name": "@sailshq/language-server",
+  "version": "0.0.1",
+  "description": "Language Server Protocol server for Sails Language Service",
+  "homepage": "https://sailjs.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sailshq/language-tools",
+    "directory": "packages/language-server"
+  },
+  "main": "index.js",
+  "bin": {
+    "sails-language-server": "./bin/sails-language-server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "watch": "node --watch server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Kelvin Omereshone",
+  "license": "MIT",
+  "dependencies": {
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  }
+}
