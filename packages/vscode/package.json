@@ -1,10 +1,10 @@
 {
   "private": "true",
-  "name": "vscode",
+  "name": "sails-vscode",
   "displayName": "Sails",
   "version": "0.0.1",
   "description": "Language support for Sails",
-  "main": "./src/index.js",
+  "main": "./dist/extension.js",
   "author": "Kelvin Omereshone",
   "publisher": "sails",
   "categories": [
