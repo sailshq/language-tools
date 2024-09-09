@@ -2,7 +2,7 @@
   "private": "true",
   "name": "vscode",
   "displayName": "Sails",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Language support for Sails",
   "main": "./src/index.js",
   "author": "Kelvin Omereshone",
