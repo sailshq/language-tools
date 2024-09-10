@@ -2,10 +2,13 @@ const { RsdoctorRspackPlugin } = require('@rsdoctor/rspack-plugin')
 
 module.exports = {
   target: 'node',
-  entry: './src/index.js',
+  entry: {
+    client: './src/index.js',
+    server: '../language-server/index.js'
+  },
   output: {
     path: './dist',
-    filename: 'extension.js',
+    filename: '[name].js',
     libraryTarget: 'commonjs2'
   },
   externals: {
