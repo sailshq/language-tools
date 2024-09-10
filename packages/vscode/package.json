@@ -29,10 +29,6 @@
     "url": "https://github.com/sponsors/dominuskelvin"
   },
   "icon": "assets/icon.png",
-  "galleryBanner": {
-    "color": "#14acc2",
-    "theme": "dark"
-  },
   "scripts": {
     "pack": "npm run vscode:prepublish && vsce package",
     "publish": "vsce publish",
