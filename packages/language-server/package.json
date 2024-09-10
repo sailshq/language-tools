@@ -1,6 +1,6 @@
 {
   "name": "@sailshq/language-server",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Language Server Protocol server for Sails Language Service",
   "homepage": "https://sailjs.com",
   "repository": {
