@@ -6,7 +6,7 @@
 
 ## Packages
 
-- [Sails Language Features](https://github.com/sailshq/language-tools/tree/main/packages/vscode) \
+- [Sails Language Features](https://github.com/sailshq/language-tools/tree/main/packages/vscode)
   _Sails language support extension for VSCode_
-- [`@sailshq/language-server`](/packages/language-server/) \
+- [`@sailshq/language-server`](/packages/language-server/)
   _The language server itself_.
