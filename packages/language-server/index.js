@@ -3,6 +3,7 @@ const TextDocument = require('vscode-languageserver-textdocument').TextDocument
 const validateDocument = require('./validators/validate-document')
 const goToAction = require('./go-to-definitions/go-to-action')
 const goToPolicy = require('./go-to-definitions/go-to-policy')
+const goToView = require('./go-to-definitions/go-to-view')
 
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
@@ -36,11 +37,20 @@ connection.onDefinition(async (params) => {
 
   const actionDefinition = await goToAction(document, params.position)
   const policyDefinition = await goToPolicy(document, params.position)
+  const viewDefinition = await goToView(document, params.position)
 
-  const definitions = [actionDefinition, policyDefinition].filter(Boolean)
+  const definitions = [
+    actionDefinition,
+    policyDefinition,
+    viewDefinition
+  ].filter(Boolean)
 
   return definitions.length > 0 ? definitions : null
 })
 
 documents.listen(connection)
 connection.listen()
+
+connection.console.log = (message) => {
+  console.log(message)
+}
