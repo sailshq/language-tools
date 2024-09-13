@@ -1,7 +1,6 @@
 const lsp = require('vscode-languageserver/node')
 const path = require('path')
-const fs = require('fs').promises
-const url = require('url')
+const findFnLine = require('../helpers/find-fn-line')
 
 module.exports = async function goToAction(document, position) {
   const fileName = path.basename(document.uri)
@@ -64,19 +63,4 @@ function extractActionInfo(document, position) {
 
 function resolveActionPath(projectRoot, actionPath) {
   return path.join(projectRoot, 'api', 'controllers', `${actionPath}.js`)
-}
-
-async function findFnLine(filePath) {
-  try {
-    const content = await fs.readFile(url.fileURLToPath(filePath), 'utf8')
-    const lines = content.split('\n')
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes('fn:')) {
-        return i // Return the line number (0-based index)
-      }
-    }
-    return 0 // If 'fn:' is not found, return the first line
-  } catch (error) {
-    return 0 // Return the first line if there's an error
-  }
 }
