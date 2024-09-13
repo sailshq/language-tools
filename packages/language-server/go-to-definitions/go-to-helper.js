@@ -4,6 +4,17 @@ const fs = require('fs').promises
 const findProjectRoot = require('../helpers/find-project-root')
 const findFnLine = require('../helpers/find-fn-line')
 
+function camelToKebabCase(str) {
+  return str.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
+}
+
+function normalizeHelperPath(helperPath) {
+  const parts = helperPath.split('/')
+  const fileName = parts.pop() // Get the last part (file name)
+  const normalizedFileName = camelToKebabCase(fileName)
+  return [...parts, normalizedFileName].join('/')
+}
+
 module.exports = async function goToHelper(document, position) {
   const helperInfo = extractHelperInfo(document, position)
 
@@ -12,9 +23,11 @@ module.exports = async function goToHelper(document, position) {
   }
 
   const projectRoot = await findProjectRoot(document.uri)
+  const normalizedHelperPath = normalizeHelperPath(
+    helperInfo.helperPath.join('/')
+  )
   const fullHelperPath =
-    path.join(projectRoot, 'api', 'helpers', ...helperInfo.helperPath) + '.js'
-
+    path.join(projectRoot, 'api', 'helpers', normalizedHelperPath) + '.js'
   if (fullHelperPath) {
     const fnLineNumber = await findFnLine(fullHelperPath)
     return lsp.Location.create(

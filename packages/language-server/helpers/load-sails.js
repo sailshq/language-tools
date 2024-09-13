@@ -12,7 +12,8 @@ module.exports = async function loadSails(workspaceUri, operation) {
       new Sails().load(
         {
           hooks: { shipwright: false },
-          log: { level: 'silent' }
+          log: { level: 'silent' },
+          models: { migrate: 'safe' }
         },
         (err, sails) => {
           if (err) {
