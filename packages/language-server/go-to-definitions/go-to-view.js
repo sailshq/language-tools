@@ -1,7 +1,8 @@
 const lsp = require('vscode-languageserver/node')
 const path = require('path')
 const fs = require('fs').promises
-const url = require('url')
+
+const findProjectRoot = require('../helpers/find-project-root')
 
 module.exports = async function goToView(document, position) {
   const viewInfo = extractViewInfo(document, position)
@@ -66,19 +67,4 @@ function extractViewInfo(document, position) {
 
 function resolveViewPath(projectRoot, viewPath) {
   return path.join(projectRoot, 'views', `${viewPath}.ejs`)
-}
-
-async function findProjectRoot(uri) {
-  let currentPath = path.dirname(url.fileURLToPath(uri))
-  const root = path.parse(currentPath).root
-
-  while (currentPath !== root) {
-    try {
-      await fs.access(path.join(currentPath, 'package.json'))
-      return currentPath
-    } catch (error) {
-      currentPath = path.dirname(currentPath)
-    }
-  }
-  throw new Error('Could not find project root')
 }
