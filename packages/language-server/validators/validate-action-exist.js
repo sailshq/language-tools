@@ -18,6 +18,10 @@ module.exports = function validateActionExist(document) {
   const actions = extractActionInfo(document) // Get all actions
 
   for (const { action, range } of actions) {
+    if (isUrlOrRedirect(action)) {
+      continue
+    }
+
     const fullActionPath = resolveActionPath(projectRoot, action)
     if (!fs.existsSync(url.fileURLToPath(fullActionPath))) {
       const diagnostic = {
@@ -62,4 +66,16 @@ function extractActionInfo(document) {
 
 function resolveActionPath(projectRoot, actionPath) {
   return path.join(projectRoot, 'api', 'controllers', `${actionPath}.js`)
+}
+
+function isUrlOrRedirect(action) {
+  if (action.startsWith('http://') || action.startsWith('https://')) {
+    return true
+  }
+
+  if (action.startsWith('/')) {
+    return true
+  }
+
+  return false
 }
