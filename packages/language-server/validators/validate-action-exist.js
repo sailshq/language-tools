@@ -1,6 +1,6 @@
 const lsp = require('vscode-languageserver/node')
 
-module.exports = function validateActionExist(document, cachedTypeMap) {
+module.exports = function validateActionExist(document, typeMap) {
   const diagnostics = []
 
   if (!document.uri.endsWith('routes.js')) return diagnostics
@@ -8,17 +8,20 @@ module.exports = function validateActionExist(document, cachedTypeMap) {
 
   for (const { action, range } of actions) {
     if (isUrlOrRedirect(action)) continue
-    const routeExists = Object.values(cachedTypeMap.routes || {}).some(
+    const routeExists = Object.values(typeMap.routes || {}).some(
       (route) => route.action?.name === action
     )
 
     if (!routeExists) {
-      diagnostics.push({
-        severity: 1,
-        range,
-        message: `Action '${action}' not found. Please check the name or create it.`,
-        source: 'Sails Validator'
-      })
+      diagnostics.push(
+        lsp.Diagnostic.create(
+          range,
+          `'${action}' action does not exist. Please check the name or create it.`,
+          lsp.DiagnosticSeverity.Warning,
+          null,
+          'Action Validator'
+        )
+      )
     }
   }
   return diagnostics
