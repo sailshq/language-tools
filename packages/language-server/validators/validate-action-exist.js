@@ -18,8 +18,7 @@ module.exports = function validateActionExist(document, typeMap) {
           range,
           `'${action}' action does not exist. Please check the name or create it.`,
           lsp.DiagnosticSeverity.Warning,
-          null,
-          'Action Validator'
+          'sails-lsp'
         )
       )
     }
