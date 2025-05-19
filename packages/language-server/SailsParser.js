@@ -181,6 +181,23 @@ class SailsParser {
     return policies
   }
 
+  #getDataTypes() {
+    return [
+      {
+        type: 'string',
+        description: 'Any string.'
+      },
+      { type: 'number', description: 'Any number.' },
+      { type: 'boolean', description: 'True or false.' },
+      {
+        type: 'json',
+        description:
+          'Any JSON-serializable value, including numbers, booleans, strings, arrays, dictionaries (plain JavaScript objects), and null.'
+      },
+      { type: 'ref', description: 'Any JavaScript value except undefined' }
+    ]
+  }
+
   async buildTypeMap() {
     const [routes, models, views, pages, policies] = await Promise.all([
       this.#parseRoutesWithActions(),
@@ -195,7 +212,8 @@ class SailsParser {
       models,
       views,
       pages,
-      policies
+      policies,
+      dataTypes: this.#getDataTypes()
     }
   }
 

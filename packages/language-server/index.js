@@ -12,6 +12,7 @@ const goToPage = require('./go-to-definitions/go-to-page')
 const goToPolicy = require('./go-to-definitions/go-to-policy')
 // Completions
 const actionsCompletion = require('./completions/actions-completion')
+const dataTypesCompletion = require('./completions/data-types-completion')
 
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
@@ -88,13 +89,13 @@ connection.onCompletion(async (params) => {
   if (!document) {
     return null
   }
-  const actionCompletion = await actionsCompletion(
-    document,
-    params.position,
-    typeMap
+  const [actionCompletion, dataTypeCompletion] = await Promise.all([
+    actionsCompletion(document, params.position, typeMap),
+    dataTypesCompletion(document, params.position, typeMap)
+  ])
+  const completions = [...actionCompletion, ...dataTypeCompletion].filter(
+    Boolean
   )
-
-  const completions = [...actionCompletion].filter(Boolean)
 
   if (completions) {
     return {
