@@ -8,6 +8,7 @@ const validateDocument = require('./validators/validate-document')
 // Go-to definitions
 const goToAction = require('./go-to-definitions/go-to-action')
 const goToView = require('./go-to-definitions/go-to-view')
+const goToPage = require('./go-to-definitions/go-to-page')
 // Completions
 const actionsCompletion = require('./completions/actions-completion')
 
@@ -63,9 +64,16 @@ connection.onDefinition(async (params) => {
   if (!document) {
     return null
   }
-  const actionDefinition = await goToAction(document, params.position, typeMap)
-  const viewDefinition = await goToView(document, params.position, typeMap)
-  const definitions = [actionDefinition, viewDefinition].filter(Boolean)
+
+  const [actionDefinition, viewDefinition, pageDefinition] = await Promise.all([
+    goToAction(document, params.position, typeMap),
+    goToView(document, params.position, typeMap),
+    goToPage(document, params.position, typeMap)
+  ])
+
+  const definitions = [actionDefinition, viewDefinition, pageDefinition].filter(
+    Boolean
+  )
   return definitions.length > 0 ? definitions : null
 })
 

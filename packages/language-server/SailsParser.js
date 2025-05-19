@@ -135,11 +135,41 @@ class SailsParser {
     return views
   }
 
+  async #parsePages() {
+    const dir = path.join(this.rootDir, 'assets', 'js', 'pages')
+    const pages = {}
+
+    if (await this.#directoryExists(dir)) {
+      const collect = async (base, rel = '') => {
+        const entries = await fs.readdir(base, { withFileTypes: true })
+        for (const entry of entries) {
+          const relPath = path.join(rel, entry.name)
+          const fullPath = path.join(base, entry.name)
+          if (entry.isDirectory()) {
+            await collect(fullPath, relPath)
+          } else if (
+            entry.isFile() &&
+            /\.(vue|js|ts|jsx|tsx|svelte|html)$/.test(entry.name)
+          ) {
+            const pageKey = relPath
+              .replace(/\.(vue|js|ts|jsx|tsx|svelte|html)$/, '')
+              .replace(/\\/g, '/')
+            pages[pageKey] = { path: fullPath }
+          }
+        }
+      }
+      await collect(dir)
+    }
+
+    return pages
+  }
+
   async buildTypeMap() {
     return {
       routes: await this.#parseRoutesWithActions(),
       models: await this.#parseModels(),
-      views: await this.#parseViews()
+      views: await this.#parseViews(),
+      pages: await this.#parsePages()
     }
   }
 

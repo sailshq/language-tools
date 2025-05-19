@@ -1,14 +1,12 @@
 const lsp = require('vscode-languageserver/node')
-
 module.exports = async function goToPage(document, position, typeMap) {
   const filePath = document.uri
   if (!filePath.includes('/api/controllers/')) return null
-
   const text = document.getText()
   const offset = document.offsetAt(position)
 
   const regex =
-    /:\s*{[^}]*?\bpage\s*:\s*(?<quote>['"])(?<page>[^'"]+)\k<quote>[^}]*?}/g
+    /{[^}]*?\bpage\s*:\s*(?<quote>['"])(?<page>[^'"]+)\k<quote>[^}]*?}/g
 
   let match
 
@@ -17,7 +15,7 @@ module.exports = async function goToPage(document, position, typeMap) {
     const quote = match.groups.quote
     const fullMatchStart =
       match.index + match[0].indexOf(quote + pageName + quote)
-    const fullMatchEnd = fullMatchStart + pageName.length + 2
+    const fullMatchEnd = fullMatchStart + pageName.length + 2 // +2 for quotes
 
     if (offset >= fullMatchStart && offset <= fullMatchEnd) {
       const pagePath = typeMap.pages?.[pageName]
