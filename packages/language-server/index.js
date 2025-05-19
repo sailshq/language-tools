@@ -1,23 +1,30 @@
 const lsp = require('vscode-languageserver/node')
 const TextDocument = require('vscode-languageserver-textdocument').TextDocument
+const SailsParser = require('./SailsParser')
 
 // Validators
 const validateDocument = require('./validators/validate-document')
 
 // Go-to definitions
 const goToAction = require('./go-to-definitions/go-to-action')
-const goToPolicy = require('./go-to-definitions/go-to-policy')
-const goToView = require('./go-to-definitions/go-to-view')
-const goToInertiaPage = require('./go-to-definitions/go-to-inertia-page')
-const goToHelper = require('./go-to-definitions/go-to-helper')
 
 // Completions
-const sailsCompletions = require('./completions/sails-completions')
+const actionsCompletion = require('./completions/actions-completion')
 
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
 
-connection.onInitialize((params) => {
+const sailsParser = new SailsParser()
+let typeMap
+
+connection.onInitialize(async (params) => {
+  const rootPath = params.workspaceFolders?.[0]?.uri
+    ? new URL(params.workspaceFolders[0].uri).pathname
+    : undefined
+
+  sailsParser.setRootDir(rootPath)
+  typeMap = await sailsParser.buildTypeMap()
+
   return {
     capabilities: {
       textDocumentSync: lsp.TextDocumentSyncKind.Incremental,
@@ -30,11 +37,25 @@ connection.onInitialize((params) => {
 })
 
 documents.onDidOpen((open) => {
-  validateDocument(connection, open.document)
+  if (typeMap) {
+    validateDocument(connection, open.document, typeMap)
+  }
 })
 
-documents.onDidChangeContent((change) => {
-  validateDocument(connection, change.document)
+documents.onDidChangeContent(async (change) => {
+  const documentUri = change.document.uri
+  if (
+    documentUri.includes('api/controllers') ||
+    documentUri.includes('config/routes.js') ||
+    documentUri.includes('api/models')
+  ) {
+    typeMap = await sailsParser.buildTypeMap()
+    connection.console.log('Type map updated due to file change.')
+  }
+
+  if (typeMap) {
+    validateDocument(connection, change.document, typeMap)
+  }
 })
 
 connection.onDefinition(async (params) => {
@@ -42,21 +63,9 @@ connection.onDefinition(async (params) => {
   if (!document) {
     return null
   }
+  const actionDefinition = await goToAction(document, params.position, typeMap)
 
-  const actionDefinition = await goToAction(document, params.position)
-  const policyDefinition = await goToPolicy(document, params.position)
-  const viewDefinition = await goToView(document, params.position)
-  const inertiaPageDefinition = await goToInertiaPage(document, params.position)
-  const helperDefinition = await goToHelper(document, params.position)
-
-  const definitions = [
-    actionDefinition,
-    policyDefinition,
-    viewDefinition,
-    inertiaPageDefinition,
-    helperDefinition
-  ].filter(Boolean)
-
+  const definitions = [actionDefinition].filter(Boolean)
   return definitions.length > 0 ? definitions : null
 })
 
@@ -65,8 +74,13 @@ connection.onCompletion(async (params) => {
   if (!document) {
     return null
   }
+  const actionCompletion = await actionsCompletion(
+    document,
+    params.position,
+    typeMap
+  )
 
-  const completions = await sailsCompletions(document, params.position)
+  const completions = [...actionCompletion].filter(Boolean)
 
   if (completions) {
     return {
