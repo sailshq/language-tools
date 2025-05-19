@@ -184,7 +184,6 @@ class SailsParser {
   async #parseHelpers() {
     const dir = path.join(this.rootDir, 'api', 'helpers')
     const helpers = {}
-
     if (await this.#directoryExists(dir)) {
       const collect = async (base, rel = '') => {
         const entries = await fs.readdir(base, { withFileTypes: true })
@@ -195,13 +194,22 @@ class SailsParser {
             await collect(fullPath, relPath)
           } else if (entry.isFile() && entry.name.endsWith('.js')) {
             const name = relPath.replace(/\.js$/, '').replace(/\\/g, '/')
-            helpers[name] = { path: fullPath }
+            const content = await this.#readFile(fullPath)
+            // Find the line number of the `fn` function
+            let fnLine = 0
+            const lines = content.split('\n')
+            for (let i = 0; i < lines.length; i++) {
+              if (/fn\s*:\s*(async\s*)?function/.test(lines[i])) {
+                fnLine = i + 1
+                break
+              }
+            }
+            helpers[name] = { path: fullPath, fnLine }
           }
         }
       }
       await collect(dir)
     }
-
     return helpers
   }
 

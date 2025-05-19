@@ -66,19 +66,26 @@ connection.onDefinition(async (params) => {
     return null
   }
 
-  const [actionDefinition, viewDefinition, pageDefinition, policyDefinition] =
-    await Promise.all([
-      goToAction(document, params.position, typeMap),
-      goToView(document, params.position, typeMap),
-      goToPage(document, params.position, typeMap),
-      goToPolicy(document, params.position, typeMap)
-    ])
+  const [
+    actionDefinition,
+    viewDefinition,
+    pageDefinition,
+    policyDefinition,
+    helperDefinition
+  ] = await Promise.all([
+    goToAction(document, params.position, typeMap),
+    goToView(document, params.position, typeMap),
+    goToPage(document, params.position, typeMap),
+    goToPolicy(document, params.position, typeMap),
+    goToHelper(document, params.position, typeMap)
+  ])
 
   const definitions = [
     actionDefinition,
     viewDefinition,
     pageDefinition,
-    policyDefinition
+    policyDefinition,
+    helperDefinition
   ].filter(Boolean)
   return definitions.length > 0 ? definitions : null
 })
