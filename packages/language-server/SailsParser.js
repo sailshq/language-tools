@@ -181,6 +181,30 @@ class SailsParser {
     return policies
   }
 
+  async #parseHelpers() {
+    const dir = path.join(this.rootDir, 'api', 'helpers')
+    const helpers = {}
+
+    if (await this.#directoryExists(dir)) {
+      const collect = async (base, rel = '') => {
+        const entries = await fs.readdir(base, { withFileTypes: true })
+        for (const entry of entries) {
+          const relPath = path.join(rel, entry.name)
+          const fullPath = path.join(base, entry.name)
+          if (entry.isDirectory()) {
+            await collect(fullPath, relPath)
+          } else if (entry.isFile() && entry.name.endsWith('.js')) {
+            const name = relPath.replace(/\.js$/, '').replace(/\\/g, '/')
+            helpers[name] = { path: fullPath }
+          }
+        }
+      }
+      await collect(dir)
+    }
+
+    return helpers
+  }
+
   #getDataTypes() {
     return [
       {
@@ -199,13 +223,16 @@ class SailsParser {
   }
 
   async buildTypeMap() {
-    const [routes, models, views, pages, policies] = await Promise.all([
-      this.#parseRoutesWithActions(),
-      this.#parseModels(),
-      this.#parseViews(),
-      this.#parsePages(),
-      this.#parsePolicies()
-    ])
+    const [routes, models, views, pages, policies, helpers] = await Promise.all(
+      [
+        this.#parseRoutesWithActions(),
+        this.#parseModels(),
+        this.#parseViews(),
+        this.#parsePages(),
+        this.#parsePolicies(),
+        this.#parseHelpers()
+      ]
+    )
 
     return {
       routes,
@@ -213,6 +240,7 @@ class SailsParser {
       views,
       pages,
       policies,
+      helpers,
       dataTypes: this.#getDataTypes()
     }
   }
