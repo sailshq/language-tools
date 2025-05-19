@@ -10,6 +10,8 @@ const goToAction = require('./go-to-definitions/go-to-action')
 const goToView = require('./go-to-definitions/go-to-view')
 const goToPage = require('./go-to-definitions/go-to-page')
 const goToPolicy = require('./go-to-definitions/go-to-policy')
+const goToHelper = require('./go-to-definitions/go-to-helper')
+
 // Completions
 const actionsCompletion = require('./completions/actions-completion')
 const dataTypesCompletion = require('./completions/data-types-completion')
@@ -17,6 +19,7 @@ const dataTypesCompletion = require('./completions/data-types-completion')
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
 
+// Create a new SailsParser instance
 const sailsParser = new SailsParser()
 let typeMap
 
@@ -47,11 +50,7 @@ documents.onDidOpen((open) => {
 
 documents.onDidChangeContent(async (change) => {
   const documentUri = change.document.uri
-  if (
-    documentUri.includes('api/controllers') ||
-    documentUri.includes('config/routes.js') ||
-    documentUri.includes('api/models')
-  ) {
+  if (documentUri.includes('api/') || documentUri.includes('config')) {
     typeMap = await sailsParser.buildTypeMap()
     connection.console.log('Type map updated due to file change.')
   }
