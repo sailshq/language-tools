@@ -9,6 +9,7 @@ const validateDocument = require('./validators/validate-document')
 const goToAction = require('./go-to-definitions/go-to-action')
 const goToView = require('./go-to-definitions/go-to-view')
 const goToPage = require('./go-to-definitions/go-to-page')
+const goToPolicy = require('./go-to-definitions/go-to-policy')
 // Completions
 const actionsCompletion = require('./completions/actions-completion')
 
@@ -65,15 +66,20 @@ connection.onDefinition(async (params) => {
     return null
   }
 
-  const [actionDefinition, viewDefinition, pageDefinition] = await Promise.all([
-    goToAction(document, params.position, typeMap),
-    goToView(document, params.position, typeMap),
-    goToPage(document, params.position, typeMap)
-  ])
+  const [actionDefinition, viewDefinition, pageDefinition, policyDefinition] =
+    await Promise.all([
+      goToAction(document, params.position, typeMap),
+      goToView(document, params.position, typeMap),
+      goToPage(document, params.position, typeMap),
+      goToPolicy(document, params.position, typeMap)
+    ])
 
-  const definitions = [actionDefinition, viewDefinition, pageDefinition].filter(
-    Boolean
-  )
+  const definitions = [
+    actionDefinition,
+    viewDefinition,
+    pageDefinition,
+    policyDefinition
+  ].filter(Boolean)
   return definitions.length > 0 ? definitions : null
 })
 

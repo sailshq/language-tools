@@ -163,13 +163,31 @@ class SailsParser {
 
     return pages
   }
+  async #parsePolicies() {
+    const dir = path.join(this.rootDir, 'api', 'policies')
+    const policies = {}
+
+    if (await this.#directoryExists(dir)) {
+      const files = await fs.readdir(dir)
+      for (const file of files) {
+        if (file.endsWith('.js')) {
+          const name = file.replace(/\.js$/, '')
+          const fullPath = path.join(dir, file)
+          policies[name] = { path: fullPath }
+        }
+      }
+    }
+
+    return policies
+  }
 
   async buildTypeMap() {
     return {
       routes: await this.#parseRoutesWithActions(),
       models: await this.#parseModels(),
       views: await this.#parseViews(),
-      pages: await this.#parsePages()
+      pages: await this.#parsePages(),
+      policies: await this.#parsePolicies()
     }
   }
 
