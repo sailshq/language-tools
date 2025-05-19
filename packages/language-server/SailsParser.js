@@ -182,12 +182,20 @@ class SailsParser {
   }
 
   async buildTypeMap() {
+    const [routes, models, views, pages, policies] = await Promise.all([
+      this.#parseRoutesWithActions(),
+      this.#parseModels(),
+      this.#parseViews(),
+      this.#parsePages(),
+      this.#parsePolicies()
+    ])
+
     return {
-      routes: await this.#parseRoutesWithActions(),
-      models: await this.#parseModels(),
-      views: await this.#parseViews(),
-      pages: await this.#parsePages(),
-      policies: await this.#parsePolicies()
+      routes,
+      models,
+      views,
+      pages,
+      policies
     }
   }
 
