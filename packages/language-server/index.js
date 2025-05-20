@@ -15,6 +15,7 @@ const goToHelper = require('./go-to-definitions/go-to-helper')
 // Completions
 const actionsCompletion = require('./completions/actions-completion')
 const dataTypesCompletion = require('./completions/data-types-completion')
+const modelAttributePropsCompletion = require('./completions/model-attribute-props-completion')
 
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
@@ -36,7 +37,7 @@ connection.onInitialize(async (params) => {
       textDocumentSync: lsp.TextDocumentSyncKind.Incremental,
       definitionProvider: true,
       completionProvider: {
-        triggerCharacters: ['"', "'", '.']
+        triggerCharacters: ['"', "'", '.', '{', ',', ' ', '\n']
       }
     }
   }
@@ -95,13 +96,18 @@ connection.onCompletion(async (params) => {
   if (!document) {
     return null
   }
-  const [actionCompletion, dataTypeCompletion] = await Promise.all([
-    actionsCompletion(document, params.position, typeMap),
-    dataTypesCompletion(document, params.position, typeMap)
-  ])
-  const completions = [...actionCompletion, ...dataTypeCompletion].filter(
-    Boolean
-  )
+  const [actionCompletion, dataTypeCompletion, modelAttributePropCompletion] =
+    await Promise.all([
+      actionsCompletion(document, params.position, typeMap),
+      dataTypesCompletion(document, params.position, typeMap),
+      modelAttributePropsCompletion(document, params.position, typeMap)
+    ])
+
+  const completions = [
+    ...actionCompletion,
+    ...dataTypeCompletion,
+    ...modelAttributePropCompletion
+  ].filter(Boolean)
 
   if (completions) {
     return {

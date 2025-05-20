@@ -229,7 +229,39 @@ class SailsParser {
       { type: 'ref', description: 'Any JavaScript value except undefined' }
     ]
   }
+  #getSharedAttributeProperties() {
+    return [
+      { label: 'type', detail: 'Data type of the attribute/input' },
+      { label: 'required', detail: 'If true, this field is mandatory' },
+      { label: 'defaultsTo', detail: 'Default value if not provided' },
+      { label: 'allowNull', detail: 'Allow null values' },
+      { label: 'description', detail: 'Description for documentation' },
+      { label: 'example', detail: 'Example value' },
+      { label: 'isIn', detail: 'Enum of allowed values' }
+    ]
+  }
+  #getModelProperties() {
+    return [
+      { label: 'columnName', detail: 'Custom database column name' },
+      { label: 'unique', detail: 'Must be unique across records' },
+      { label: 'autoIncrement', detail: 'Auto-increment this field' },
+      { label: 'primaryKey', detail: 'Marks as primary key' },
+      { label: 'model', detail: 'Reference to another model' },
+      { label: 'collection', detail: 'Association with other records' },
+      { label: 'via', detail: 'Used for collection associations' },
+      { label: 'dominant', detail: 'Used in many-to-many relationships' }
+    ]
+  }
+  #getModelAttributeProperties() {
+    return [
+      ...this.#getSharedAttributeProperties(),
+      ...this.#getModelProperties()
+    ]
+  }
 
+  #getInputProperties() {
+    return this.#getSharedAttributeProperties()
+  }
   async buildTypeMap() {
     const [routes, models, views, pages, policies, helpers] = await Promise.all(
       [
@@ -249,7 +281,9 @@ class SailsParser {
       pages,
       policies,
       helpers,
-      dataTypes: this.#getDataTypes()
+      dataTypes: this.#getDataTypes(),
+      modelAttributeProps: this.#getModelAttributeProperties(),
+      inputProps: this.#getInputProperties()
     }
   }
 
