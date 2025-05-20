@@ -91,7 +91,9 @@ class SailsParser {
           if (!file.endsWith('.js')) continue
           const name = file.slice(0, -3)
           const info = { attributes: {} }
-          const content = await this.#readFile(path.join(dir, file))
+          const modelPath = path.join(dir, file)
+          info.path = modelPath
+          const content = await this.#readFile(modelPath)
           const attrMatch = content.match(/attributes\s*:\s*\{([\s\S]*?)\}/)
           if (attrMatch) {
             for (const attr of attrMatch[1].matchAll(

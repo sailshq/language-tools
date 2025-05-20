@@ -11,6 +11,7 @@ const goToView = require('./go-to-definitions/go-to-view')
 const goToPage = require('./go-to-definitions/go-to-page')
 const goToPolicy = require('./go-to-definitions/go-to-policy')
 const goToHelper = require('./go-to-definitions/go-to-helper')
+const goToModel = require('./go-to-definitions/go-to-model')
 
 // Completions
 const actionsCompletion = require('./completions/actions-completion')
@@ -18,6 +19,8 @@ const dataTypesCompletion = require('./completions/data-types-completion')
 const modelAttributePropsCompletion = require('./completions/model-attribute-props-completion')
 const inputPropsCompletion = require('./completions/input-props-completion')
 const inertiaPagesCompletion = require('./completions/inertia-pages-completion')
+const modelsCompletion = require('./completions/models-completion')
+
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
 
@@ -73,13 +76,15 @@ connection.onDefinition(async (params) => {
     viewDefinition,
     pageDefinition,
     policyDefinition,
-    helperDefinition
+    helperDefinition,
+    modelDefinition
   ] = await Promise.all([
     goToAction(document, params.position, typeMap),
     goToView(document, params.position, typeMap),
     goToPage(document, params.position, typeMap),
     goToPolicy(document, params.position, typeMap),
-    goToHelper(document, params.position, typeMap)
+    goToHelper(document, params.position, typeMap),
+    goToModel(document, params.position, typeMap)
   ])
 
   const definitions = [
@@ -87,7 +92,8 @@ connection.onDefinition(async (params) => {
     viewDefinition,
     pageDefinition,
     policyDefinition,
-    helperDefinition
+    helperDefinition,
+    modelDefinition
   ].filter(Boolean)
   return definitions.length > 0 ? definitions : null
 })
@@ -102,13 +108,15 @@ connection.onCompletion(async (params) => {
     dataTypeCompletion,
     modelAttributePropCompletion,
     inputPropCompletion,
-    inertiaPageCompletion
+    inertiaPageCompletion,
+    modelCompletion
   ] = await Promise.all([
     actionsCompletion(document, params.position, typeMap),
     dataTypesCompletion(document, params.position, typeMap),
     modelAttributePropsCompletion(document, params.position, typeMap),
     inputPropsCompletion(document, params.position, typeMap),
-    inertiaPagesCompletion(document, params.position, typeMap)
+    inertiaPagesCompletion(document, params.position, typeMap),
+    modelsCompletion(document, params.position, typeMap)
   ])
 
   const completions = [
@@ -116,7 +124,8 @@ connection.onCompletion(async (params) => {
     ...dataTypeCompletion,
     ...modelAttributePropCompletion,
     ...inputPropCompletion,
-    ...inertiaPageCompletion
+    ...inertiaPageCompletion,
+    ...modelCompletion
   ].filter(Boolean)
 
   if (completions) {
