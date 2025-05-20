@@ -236,6 +236,10 @@ class SailsParser {
       { label: 'defaultsTo', detail: 'Default value if not provided' },
       { label: 'allowNull', detail: 'Allow null values' },
       { label: 'description', detail: 'Description for documentation' },
+      {
+        label: 'extendedDescription',
+        detail: 'Longer, more detailed description for documentation'
+      },
       { label: 'example', detail: 'Example value' },
       { label: 'isIn', detail: 'Enum of allowed values' }
     ]

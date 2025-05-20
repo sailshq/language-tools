@@ -16,6 +16,7 @@ const goToHelper = require('./go-to-definitions/go-to-helper')
 const actionsCompletion = require('./completions/actions-completion')
 const dataTypesCompletion = require('./completions/data-types-completion')
 const modelAttributePropsCompletion = require('./completions/model-attribute-props-completion')
+const inputPropsCompletion = require('./completions/input-props-completion')
 
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
@@ -96,22 +97,28 @@ connection.onCompletion(async (params) => {
   if (!document) {
     return null
   }
-  const [actionCompletion, dataTypeCompletion, modelAttributePropCompletion] =
-    await Promise.all([
-      actionsCompletion(document, params.position, typeMap),
-      dataTypesCompletion(document, params.position, typeMap),
-      modelAttributePropsCompletion(document, params.position, typeMap)
-    ])
+  const [
+    actionCompletion,
+    dataTypeCompletion,
+    modelAttributePropCompletion,
+    inputPropCompletion
+  ] = await Promise.all([
+    actionsCompletion(document, params.position, typeMap),
+    dataTypesCompletion(document, params.position, typeMap),
+    modelAttributePropsCompletion(document, params.position, typeMap),
+    inputPropsCompletion(document, params.position, typeMap)
+  ])
 
   const completions = [
     ...actionCompletion,
     ...dataTypeCompletion,
-    ...modelAttributePropCompletion
+    ...modelAttributePropCompletion,
+    ...inputPropCompletion
   ].filter(Boolean)
 
   if (completions) {
     return {
-      isIncomplete: false,
+      isIncomplete: true,
       items: completions
     }
   }

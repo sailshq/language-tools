@@ -1,50 +1,53 @@
 const lsp = require('vscode-languageserver/node')
 
-module.exports = function modelAttributePropsCompletion(
-  document,
-  position,
-  typeMap
-) {
+module.exports = function inputPropsCompletion(document, position, typeMap) {
   const filePath = document.uri
 
-  const isTargetFile = filePath.includes('/api/models/')
+  const isTargetFile =
+    filePath.includes('/api/helpers/') ||
+    filePath.includes('/api/controllers/') ||
+    filePath.includes('/scripts/')
   if (!isTargetFile) return []
+
   const text = document.getText()
   const offset = document.offsetAt(position)
   const before = text.substring(0, offset)
 
-  // Confirm we're inside the attributes section
-  const insideAttributes = /attributes\s*:\s*{[\s\S]*$/.test(before)
-  if (!insideAttributes) return []
+  // Check we're inside the inputs: { ... } section
+  const insideInputs = /inputs\s*:\s*{[\s\S]*$/.test(before)
+  if (!insideInputs) return []
 
-  // Try to match "someProperty: {" above the current line
+  // Walk backward to see if we're inside an input property definition
   const lines = before.split('\n')
   const reversed = lines.slice().reverse()
-  let insidePropertyBlock = false
+  let insideInputBlock = false
 
   for (const line of reversed) {
     const trimmed = line.trim()
     if (/^[a-zA-Z0-9_]+\s*:\s*{\s*$/.test(trimmed)) {
-      insidePropertyBlock = true
+      insideInputBlock = true
       break
     }
     if (/^\}/.test(trimmed)) {
-      break // exited a block without entering a new one
+      break // exited a block
     }
   }
 
-  if (!insidePropertyBlock) return []
+  if (!insideInputBlock) return []
 
-  // Optional: match current prefix
+  // Extract current typing prefix
   const lastLine = lines[lines.length - 1]
   const prefixMatch = lastLine.match(/([a-zA-Z0-9_]*)$/)
   const prefix = prefixMatch ? prefixMatch[1] : ''
 
-  return typeMap.modelAttributeProps
+  return typeMap.inputProps
     .filter(({ label }) => label.startsWith(prefix))
     .map(({ label, detail }) => ({
       label,
-      kind: lsp.CompletionItemKind.Field,
+      kind:
+        label === 'custom'
+          ? lsp.CompletionItemKind.Method
+          : lsp.CompletionItemKind.Field,
       detail,
       documentation: detail,
       insertText: `${label}: `,
