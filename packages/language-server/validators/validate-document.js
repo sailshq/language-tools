@@ -2,7 +2,7 @@ const validateAutomigrationStrategy = require('./validate-auto-migration-strateg
 const validateActionExist = require('./validate-action-exist')
 const validatePageExist = require('./validate-page-exist')
 const validateDataTypes = require('./validate-data-type')
-
+const validatePolicyExist = require('./validate-policy-exist')
 module.exports = function validateDocument(connection, document, typeMap) {
   const diagnostics = []
 
@@ -10,12 +10,14 @@ module.exports = function validateDocument(connection, document, typeMap) {
   const actionDiagnostics = validateActionExist(document, typeMap)
   const pageDiagnostics = validatePageExist(document, typeMap)
   const dataTypeDiagnostics = validateDataTypes(document, typeMap)
+  const policyDiagnostics = validatePolicyExist(document, typeMap)
 
   diagnostics.push(
     ...modelDiagnostics,
     ...actionDiagnostics,
     ...pageDiagnostics,
-    ...dataTypeDiagnostics
+    ...dataTypeDiagnostics,
+    ...policyDiagnostics
   )
 
   connection.sendDiagnostics({ uri: document.uri, diagnostics })
