@@ -23,7 +23,7 @@ module.exports = function inertiaPagesCompletion(
 
       return {
         label: pageKey,
-        kind: lsp.CompletionItemKind.Module, // Good choice for pages
+        kind: lsp.CompletionItemKind.Module,
         detail: 'Inertia Page',
         documentation: pageData.path,
         sortText: pageKey,
