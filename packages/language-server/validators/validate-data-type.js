@@ -14,7 +14,7 @@ module.exports = function validateDataType(document, typeMap) {
     const typeStart = match.index + match[0].indexOf(dataType)
     const typeEnd = typeStart + dataType.length
 
-    const isValid = typeMap.dataTypes?.[dataType]
+    const isValid = typeMap.dataTypes.some((dt) => dt.type === dataType)
 
     if (!isValid) {
       diagnostics.push(
@@ -23,7 +23,7 @@ module.exports = function validateDataType(document, typeMap) {
             document.positionAt(typeStart),
             document.positionAt(typeEnd)
           ),
-          `'${dataType}' is not a recognized data type. Please use a valid type.`,
+          `'${dataType}' is not a recognized data type. Valid data types are: ${typeMap.dataTypes.map((dataType) => dataType.type).join(', ')}.`,
           lsp.DiagnosticSeverity.Error,
           'sails-lsp'
         )
