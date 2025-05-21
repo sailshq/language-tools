@@ -84,17 +84,52 @@ class SailsParser {
     const dir = path.join(this.rootDir, 'api', 'models')
     const models = {}
 
+    // Define Waterline static and chainable methods
+    const STATIC_METHODS = [
+      'find',
+      'findOne',
+      'create',
+      'createEach',
+      'update',
+      'destroy',
+      'count',
+      'replaceCollection',
+      'addToCollection',
+      'removeFromCollection',
+      'findOrCreate',
+      'findOrCreateEach'
+    ]
+
+    const CHAINABLE_METHODS = [
+      'where',
+      'limit',
+      'skip',
+      'sort',
+      'populate',
+      'select',
+      'omit',
+      'meta',
+      'decrypt'
+    ]
+
     if (await this.#directoryExists(dir)) {
       try {
         const files = await fs.readdir(dir)
         for (const file of files) {
           if (!file.endsWith('.js')) continue
           const name = file.slice(0, -3)
-          const info = { attributes: {} }
+          const info = {
+            attributes: {},
+            methods: STATIC_METHODS,
+            chainableMethods: CHAINABLE_METHODS
+          }
+
           const modelPath = path.join(dir, file)
           info.path = modelPath
+
           const content = await this.#readFile(modelPath)
           const attrMatch = content.match(/attributes\s*:\s*\{([\s\S]*?)\}/)
+
           if (attrMatch) {
             for (const attr of attrMatch[1].matchAll(
               /(\w+)\s*:\s*\{[^}]*type\s*:\s*['"](\w+)['"]/g
@@ -102,12 +137,14 @@ class SailsParser {
               info.attributes[attr[1]] = attr[2]
             }
           }
+
           models[name] = info
         }
       } catch (error) {
         console.error(`Error parsing models in directory: ${dir}`, error)
       }
     }
+
     return models
   }
 
