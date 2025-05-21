@@ -86,30 +86,93 @@ class SailsParser {
 
     // Define Waterline static and chainable methods
     const STATIC_METHODS = [
-      'find',
-      'findOne',
-      'create',
-      'createEach',
-      'update',
-      'destroy',
-      'count',
-      'replaceCollection',
-      'addToCollection',
-      'removeFromCollection',
-      'findOrCreate',
-      'findOrCreateEach'
+      {
+        name: 'find',
+        description: 'Retrieve all records matching criteria.'
+      },
+      {
+        name: 'findOne',
+        description: 'Retrieve a single record matching criteria.'
+      },
+      {
+        name: 'create',
+        description: 'Create a new record.'
+      },
+      {
+        name: 'createEach',
+        description: 'Create multiple new records in a batch.'
+      },
+      {
+        name: 'update',
+        description: 'Update records matching criteria.'
+      },
+      {
+        name: 'destroy',
+        description: 'Delete records matching criteria.'
+      },
+      {
+        name: 'count',
+        description: 'Count records matching criteria.'
+      },
+      {
+        name: 'replaceCollection',
+        description: 'Replace all items in a collection association.'
+      },
+      {
+        name: 'addToCollection',
+        description: 'Add items to a collection association.'
+      },
+      {
+        name: 'removeFromCollection',
+        description: 'Remove items from a collection association.'
+      },
+      {
+        name: 'findOrCreate',
+        description: 'Find a record or create it if it does not exist.'
+      },
+      {
+        name: 'findOrCreateEach',
+        description: 'Find or create multiple records in a batch.'
+      }
     ]
 
     const CHAINABLE_METHODS = [
-      'where',
-      'limit',
-      'skip',
-      'sort',
-      'populate',
-      'select',
-      'omit',
-      'meta',
-      'decrypt'
+      {
+        name: 'where',
+        description: 'Filter records by criteria.'
+      },
+      {
+        name: 'limit',
+        description: 'Limit the number of records returned.'
+      },
+      {
+        name: 'skip',
+        description: 'Skip a number of records (for pagination).'
+      },
+      {
+        name: 'sort',
+        description: 'Sort records by specified attributes.'
+      },
+      {
+        name: 'populate',
+        description: 'Populate associated records.'
+      },
+      {
+        name: 'select',
+        description: 'Select only specific attributes to return.'
+      },
+      {
+        name: 'omit',
+        description: 'Omit specific attributes from the result.'
+      },
+      {
+        name: 'meta',
+        description: 'Pass additional options to the query.'
+      },
+      {
+        name: 'decrypt',
+        description: 'Decrypt encrypted attributes in the result.'
+      }
     ]
 
     if (await this.#directoryExists(dir)) {

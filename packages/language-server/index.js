@@ -22,6 +22,7 @@ const inertiaPagesCompletion = require('./completions/inertia-pages-completion')
 const modelsCompletion = require('./completions/models-completion')
 const policiesCompletion = require('./completions/policies-completion')
 const viewsCompletion = require('./completions/views-completion')
+const modelMethodsCompletion = require('./completions/model-methods-completion')
 
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
@@ -113,7 +114,8 @@ connection.onCompletion(async (params) => {
     inertiaPageCompletion,
     modelCompletion,
     policyCompletion,
-    viewCompletion
+    viewCompletion,
+    modelMethodCompletion
   ] = await Promise.all([
     actionsCompletion(document, params.position, typeMap),
     dataTypesCompletion(document, params.position, typeMap),
@@ -122,7 +124,8 @@ connection.onCompletion(async (params) => {
     inertiaPagesCompletion(document, params.position, typeMap),
     modelsCompletion(document, params.position, typeMap),
     policiesCompletion(document, params.position, typeMap),
-    viewsCompletion(document, params.position, typeMap)
+    viewsCompletion(document, params.position, typeMap),
+    modelMethodsCompletion(document, params.position, typeMap)
   ])
 
   const completions = [
@@ -133,12 +136,13 @@ connection.onCompletion(async (params) => {
     ...inertiaPageCompletion,
     ...modelCompletion,
     ...policyCompletion,
-    ...viewCompletion
+    ...viewCompletion,
+    ...modelMethodCompletion
   ].filter(Boolean)
 
   if (completions) {
     return {
-      isIncomplete: true,
+      isIncomplete: false,
       items: completions
     }
   }
