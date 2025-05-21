@@ -1,10 +1,6 @@
 const lsp = require('vscode-languageserver/node')
 
-module.exports = function policiesCompletion(
-  document,
-  position,
-  cachedTypeMap
-) {
+module.exports = function policiesCompletion(document, position, typeMap) {
   if (!document.uri.endsWith('policies.js')) return []
 
   const text = document.getText()
@@ -18,7 +14,7 @@ module.exports = function policiesCompletion(
 
   const prefix = match[1]
 
-  return Object.entries(cachedTypeMap.policies || {})
+  return Object.entries(typeMap.policies || {})
     .map(([policyName, policy]) => {
       if (!policyName.startsWith(prefix)) return null
 
