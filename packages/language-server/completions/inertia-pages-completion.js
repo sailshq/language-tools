@@ -1,10 +1,6 @@
 const lsp = require('vscode-languageserver/node')
 
-module.exports = function inertiaPagesCompletion(
-  document,
-  position,
-  cachedTypeMap
-) {
+module.exports = function inertiaPagesCompletion(document, position, typeMap) {
   if (!document.uri.includes('/api/controllers/')) return []
 
   const text = document.getText()
@@ -17,7 +13,7 @@ module.exports = function inertiaPagesCompletion(
 
   const prefix = match[1]
 
-  const completions = Object.entries(cachedTypeMap.pages || {})
+  const completions = Object.entries(typeMap.pages || {})
     .map(([pageKey, pageData]) => {
       if (!pageKey.startsWith(prefix)) return null
 

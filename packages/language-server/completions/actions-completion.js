@@ -1,6 +1,6 @@
 const lsp = require('vscode-languageserver/node')
 
-module.exports = function actionsCompletion(document, position, cachedTypeMap) {
+module.exports = function actionsCompletion(document, position, typeMap) {
   if (!document.uri.endsWith('routes.js')) return [] // Return an empty array instead of null
 
   const text = document.getText()
@@ -15,7 +15,7 @@ module.exports = function actionsCompletion(document, position, cachedTypeMap) {
 
   const prefix = match[1]
 
-  const completions = Object.values(cachedTypeMap.routes || {})
+  const completions = Object.values(typeMap.routes || {})
     .map((route) => {
       const actionName = route.action?.name
       if (!actionName || !actionName.startsWith(prefix)) return null
