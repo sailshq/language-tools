@@ -23,7 +23,7 @@ const modelsCompletion = require('./completions/models-completion')
 const policiesCompletion = require('./completions/policies-completion')
 const viewsCompletion = require('./completions/views-completion')
 const modelMethodsCompletion = require('./completions/model-methods-completion')
-
+const modelAttributesCompletion = require('./completions/model-attributes-completion')
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
 
@@ -115,7 +115,8 @@ connection.onCompletion(async (params) => {
     modelCompletion,
     policyCompletion,
     viewCompletion,
-    modelMethodCompletion
+    modelMethodCompletion,
+    modelAttributeCompletion
   ] = await Promise.all([
     actionsCompletion(document, params.position, typeMap),
     dataTypesCompletion(document, params.position, typeMap),
@@ -125,7 +126,8 @@ connection.onCompletion(async (params) => {
     modelsCompletion(document, params.position, typeMap),
     policiesCompletion(document, params.position, typeMap),
     viewsCompletion(document, params.position, typeMap),
-    modelMethodsCompletion(document, params.position, typeMap)
+    modelMethodsCompletion(document, params.position, typeMap),
+    modelAttributesCompletion(document, params.position, typeMap)
   ])
 
   const completions = [
@@ -137,7 +139,8 @@ connection.onCompletion(async (params) => {
     ...modelCompletion,
     ...policyCompletion,
     ...viewCompletion,
-    ...modelMethodCompletion
+    ...modelMethodCompletion,
+    ...modelAttributeCompletion
   ].filter(Boolean)
 
   if (completions) {
