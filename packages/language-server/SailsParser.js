@@ -79,7 +79,6 @@ class SailsParser {
 
     return routes
   }
-
   async #parseModels() {
     const dir = path.join(this.rootDir, 'api', 'models')
     const models = {}
@@ -175,39 +174,37 @@ class SailsParser {
       }
     ]
 
-    if (await this.#directoryExists(dir)) {
+    if (!(await this.#directoryExists(dir))) return models
+
+    const files = await fs.readdir(dir)
+    for (const file of files) {
+      if (!file.endsWith('.js')) continue
+
+      const name = file.slice(0, -3)
+      const modelPath = path.join(dir, file)
+
       try {
-        const files = await fs.readdir(dir)
-        for (const file of files) {
-          if (!file.endsWith('.js')) continue
-          const name = file.slice(0, -3)
-          const info = {
-            attributes: {},
-            methods: STATIC_METHODS,
-            chainableMethods: CHAINABLE_METHODS
-          }
-
-          const modelPath = path.join(dir, file)
-          info.path = modelPath
-
-          const content = await this.#readFile(modelPath)
-          const attrMatch = content.match(/attributes\s*:\s*\{([\s\S]*?)\}/)
-
-          if (attrMatch) {
-            for (const attr of attrMatch[1].matchAll(
-              /(\w+)\s*:\s*\{[^}]*type\s*:\s*['"](\w+)['"]/g
-            )) {
-              info.attributes[attr[1]] = attr[2]
-            }
-          }
-
-          models[name] = info
+        const model = require(modelPath)
+        const info = {
+          path: modelPath,
+          methods: STATIC_METHODS,
+          chainableMethods: CHAINABLE_METHODS,
+          attributes: { ...model.attributes }
         }
-      } catch (error) {
-        console.error(`Error parsing models in directory: ${dir}`, error)
+
+        const modelsConfigPath = path.join(this.rootDir, 'config', 'models.js')
+
+        if (await fs.stat(modelsConfigPath)) {
+          const modelsConfig = require(modelsConfigPath)
+          if (modelsConfig.attributes) {
+            info.attributes = { ...modelsConfig.attributes, ...info.attributes }
+          }
+        }
+        models[name] = info
+      } catch (err) {
+        console.error(`Error requiring model: ${file}`, err)
       }
     }
-
     return models
   }
 
