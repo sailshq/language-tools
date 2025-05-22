@@ -15,8 +15,9 @@ module.exports = function modelMethodsCompletion(document, position, typeMap) {
   const staticCallMatch = before.match(
     /(?:sails\.models\.([A-Za-z_$][\w$]*)|([A-Za-z_$][\w$]*))\.\s*([a-zA-Z]*)?$/
   )
+  // Match chainable calls like User.find().<chainable> or User.find({...}).<chainable>
   const chainableCallMatch = before.match(
-    /([A-Za-z_$][\w$]*)\.\w+\(\)\.\s*([a-zA-Z]*)?$/
+    /([A-Za-z_$][\w$]*)\.[a-zA-Z_]+\([^)]*\)\.\s*([a-zA-Z]*)?$/
   )
 
   let modelName, prefix, methods
