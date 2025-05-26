@@ -1,40 +1,71 @@
 const lsp = require('vscode-languageserver/node')
 const TextDocument = require('vscode-languageserver-textdocument').TextDocument
+const SailsParser = require('./SailsParser')
 
 // Validators
 const validateDocument = require('./validators/validate-document')
 
 // Go-to definitions
 const goToAction = require('./go-to-definitions/go-to-action')
-const goToPolicy = require('./go-to-definitions/go-to-policy')
 const goToView = require('./go-to-definitions/go-to-view')
-const goToInertiaPage = require('./go-to-definitions/go-to-inertia-page')
+const goToPage = require('./go-to-definitions/go-to-page')
+const goToPolicy = require('./go-to-definitions/go-to-policy')
 const goToHelper = require('./go-to-definitions/go-to-helper')
+const goToModel = require('./go-to-definitions/go-to-model')
 
 // Completions
-const sailsCompletions = require('./completions/sails-completions')
-
+const actionsCompletion = require('./completions/actions-completion')
+const dataTypesCompletion = require('./completions/data-types-completion')
+const modelAttributePropsCompletion = require('./completions/model-attribute-props-completion')
+const inputPropsCompletion = require('./completions/input-props-completion')
+const inertiaPagesCompletion = require('./completions/inertia-pages-completion')
+const modelsCompletion = require('./completions/models-completion')
+const policiesCompletion = require('./completions/policies-completion')
+const viewsCompletion = require('./completions/views-completion')
+const modelMethodsCompletion = require('./completions/model-methods-completion')
+const modelAttributesCompletion = require('./completions/model-attributes-completion')
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
 
-connection.onInitialize((params) => {
+// Create a new SailsParser instance
+const sailsParser = new SailsParser()
+let typeMap
+
+connection.onInitialize(async (params) => {
+  const rootPath = params.workspaceFolders?.[0]?.uri
+    ? new URL(params.workspaceFolders[0].uri).pathname
+    : undefined
+
+  sailsParser.setRootDir(rootPath)
+  typeMap = await sailsParser.buildTypeMap()
+
   return {
     capabilities: {
       textDocumentSync: lsp.TextDocumentSyncKind.Incremental,
       definitionProvider: true,
       completionProvider: {
-        triggerCharacters: ['"', "'", '.']
+        triggerCharacters: ['"', "'", '.', '{', ',', ' ', '\n']
       }
     }
   }
 })
 
 documents.onDidOpen((open) => {
-  validateDocument(connection, open.document)
+  if (typeMap) {
+    validateDocument(connection, open.document, typeMap)
+  }
 })
 
-documents.onDidChangeContent((change) => {
-  validateDocument(connection, change.document)
+documents.onDidChangeContent(async (change) => {
+  const documentUri = change.document.uri
+  if (documentUri.includes('api/') || documentUri.includes('config')) {
+    typeMap = await sailsParser.buildTypeMap()
+    connection.console.log('Type map updated due to file change.')
+  }
+
+  if (typeMap) {
+    validateDocument(connection, change.document, typeMap)
+  }
 })
 
 connection.onDefinition(async (params) => {
@@ -43,20 +74,30 @@ connection.onDefinition(async (params) => {
     return null
   }
 
-  const actionDefinition = await goToAction(document, params.position)
-  const policyDefinition = await goToPolicy(document, params.position)
-  const viewDefinition = await goToView(document, params.position)
-  const inertiaPageDefinition = await goToInertiaPage(document, params.position)
-  const helperDefinition = await goToHelper(document, params.position)
+  const [
+    actionDefinition,
+    viewDefinition,
+    pageDefinition,
+    policyDefinition,
+    helperDefinition,
+    modelDefinition
+  ] = await Promise.all([
+    goToAction(document, params.position, typeMap),
+    goToView(document, params.position, typeMap),
+    goToPage(document, params.position, typeMap),
+    goToPolicy(document, params.position, typeMap),
+    goToHelper(document, params.position, typeMap),
+    goToModel(document, params.position, typeMap)
+  ])
 
   const definitions = [
     actionDefinition,
-    policyDefinition,
     viewDefinition,
-    inertiaPageDefinition,
-    helperDefinition
+    pageDefinition,
+    policyDefinition,
+    helperDefinition,
+    modelDefinition
   ].filter(Boolean)
-
   return definitions.length > 0 ? definitions : null
 })
 
@@ -65,8 +106,42 @@ connection.onCompletion(async (params) => {
   if (!document) {
     return null
   }
+  const [
+    actionCompletion,
+    dataTypeCompletion,
+    modelAttributePropCompletion,
+    inputPropCompletion,
+    inertiaPageCompletion,
+    modelCompletion,
+    policyCompletion,
+    viewCompletion,
+    modelMethodCompletion,
+    modelAttributeCompletion
+  ] = await Promise.all([
+    actionsCompletion(document, params.position, typeMap),
+    dataTypesCompletion(document, params.position, typeMap),
+    modelAttributePropsCompletion(document, params.position, typeMap),
+    inputPropsCompletion(document, params.position, typeMap),
+    inertiaPagesCompletion(document, params.position, typeMap),
+    modelsCompletion(document, params.position, typeMap),
+    policiesCompletion(document, params.position, typeMap),
+    viewsCompletion(document, params.position, typeMap),
+    modelMethodsCompletion(document, params.position, typeMap),
+    modelAttributesCompletion(document, params.position, typeMap)
+  ])
 
-  const completions = await sailsCompletions(document, params.position)
+  const completions = [
+    ...actionCompletion,
+    ...dataTypeCompletion,
+    ...modelAttributePropCompletion,
+    ...inputPropCompletion,
+    ...inertiaPageCompletion,
+    ...modelCompletion,
+    ...policyCompletion,
+    ...viewCompletion,
+    ...modelMethodCompletion,
+    ...modelAttributeCompletion
+  ].filter(Boolean)
 
   if (completions) {
     return {
