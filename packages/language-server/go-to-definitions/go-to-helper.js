@@ -1,60 +1,47 @@
 const lsp = require('vscode-languageserver/node')
-const path = require('path')
-const fs = require('fs').promises
-const findProjectRoot = require('../helpers/find-project-root')
-const findFnLine = require('../helpers/find-fn-line')
 
-function camelToKebabCase(str) {
-  return str.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
+function toKebab(str) {
+  return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
 }
 
-function normalizeHelperPath(helperPath) {
-  const parts = helperPath.split('/')
-  const fileName = parts.pop() // Get the last part (file name)
-  const normalizedFileName = camelToKebabCase(fileName)
-  return [...parts, normalizedFileName].join('/')
-}
-
-module.exports = async function goToHelper(document, position) {
-  const helperInfo = extractHelperInfo(document, position)
-
-  if (!helperInfo) {
-    return null
-  }
-
-  const projectRoot = await findProjectRoot(document.uri)
-  const normalizedHelperPath = normalizeHelperPath(
-    helperInfo.helperPath.join('/')
-  )
-  const fullHelperPath =
-    path.join(projectRoot, 'api', 'helpers', normalizedHelperPath) + '.js'
-  if (fullHelperPath) {
-    const fnLineNumber = await findFnLine(fullHelperPath)
-    return lsp.Location.create(
-      fullHelperPath,
-      lsp.Range.create(fnLineNumber, 0, fnLineNumber, 0)
-    )
-  }
-}
-
-function extractHelperInfo(document, position) {
+module.exports = async function goToHelper(document, position, typeMap) {
   const text = document.getText()
   const offset = document.offsetAt(position)
 
-  // Regular expression to match sails.helpers.exampleHelper() or sails.helpers.exampleHelper.with()
-  // Also matches nested helpers like sails.helpers.mail.send() or sails.helpers.mail.send.with()
-  const regex = /sails\.helpers\.([a-zA-Z0-9.]+)(?:\.with)?\s*\(/g
+  // Match sails.helpers.foo or sails.helpers.bar.baz
+  const regex =
+    /\bsails\.helpers(?:\.(?<group>[a-zA-Z0-9_]+))?\.(?<helper>[a-zA-Z0-9_]+)(?![\w.])/g
+
   let match
 
   while ((match = regex.exec(text)) !== null) {
-    const start = match.index
-    const end = start + match[0].length
+    const { group, helper } = match.groups
 
-    if (start <= offset && offset <= end) {
-      const helperPath = match[1].split('.').filter((part) => part !== 'with')
-      return { helperPath }
+    const kebabGroup = group ? toKebab(group) : null
+    const kebabHelper = toKebab(helper)
+    const fullHelperName = kebabGroup
+      ? `${kebabGroup}/${kebabHelper}`
+      : kebabHelper
+
+    // Compute accurate range for just the helper name
+    const helperStart = match.index + match[0].lastIndexOf(helper)
+    const helperEnd = helperStart + helper.length
+
+    if (offset >= helperStart && offset <= helperEnd) {
+      const helperInfo = typeMap.helpers?.[fullHelperName]
+      if (helperInfo && helperInfo.path) {
+        const uri = `file://${helperInfo.path}`
+        return lsp.LocationLink.create(
+          uri,
+          lsp.Range.create(helperInfo.fnLine - 1, 0, helperInfo.fnLine - 1, 0),
+          lsp.Range.create(helperInfo.fnLine - 1, 0, helperInfo.fnLine - 1, 0),
+          lsp.Range.create(
+            document.positionAt(helperStart),
+            document.positionAt(helperEnd)
+          )
+        )
+      }
     }
   }
-
   return null
 }

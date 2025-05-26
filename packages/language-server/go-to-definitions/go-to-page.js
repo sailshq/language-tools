@@ -1,32 +1,26 @@
 const lsp = require('vscode-languageserver/node')
-const path = require('path')
-
-module.exports = async function goToView(document, position, typeMap) {
-  const fileName = path.basename(document.uri)
+module.exports = async function goToPage(document, position, typeMap) {
   const filePath = document.uri
+  if (!filePath.includes('/api/controllers/')) return null
   const text = document.getText()
   const offset = document.offsetAt(position)
 
-  const isRoutes = fileName === 'routes.js'
-  const isController = filePath.includes('/api/controllers/')
-
-  if (!isRoutes && !isController) return null
-
   const regex =
-    /\b(viewTemplatePath|view)\s*:\s*(?<quote>['"])(?<view>[^'"]+)\k<quote>/g
+    /{[^}]*?\bpage\s*:\s*(?<quote>['"])(?<page>[^'"]+)\k<quote>[^}]*?}/g
 
   let match
+
   while ((match = regex.exec(text)) !== null) {
-    const viewName = match.groups.view
+    const pageName = match.groups.page
     const quote = match.groups.quote
     const fullMatchStart =
-      match.index + match[0].indexOf(quote + viewName + quote)
-    const fullMatchEnd = fullMatchStart + viewName.length + 2
+      match.index + match[0].indexOf(quote + pageName + quote)
+    const fullMatchEnd = fullMatchStart + pageName.length + 2 // +2 for quotes
 
     if (offset >= fullMatchStart && offset <= fullMatchEnd) {
-      const viewPath = typeMap.views?.[viewName]
-      if (viewPath) {
-        const uri = `file://${viewPath.path}`
+      const pagePath = typeMap.pages?.[pageName]
+      if (pagePath) {
+        const uri = `file://${pagePath.path}`
         return lsp.LocationLink.create(
           uri,
           lsp.Range.create(0, 0, 0, 0),
@@ -39,5 +33,6 @@ module.exports = async function goToView(document, position, typeMap) {
       }
     }
   }
+
   return null
 }
