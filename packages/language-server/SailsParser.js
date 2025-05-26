@@ -1,0 +1,403 @@
+const fs = require('fs').promises
+const path = require('path')
+
+class SailsParser {
+  constructor(rootDir) {
+    this.rootDir = rootDir
+  }
+
+  setRootDir(rootDir) {
+    this.rootDir = rootDir
+  }
+
+  async #readFile(filePath) {
+    try {
+      return await fs.readFile(filePath, 'utf8')
+    } catch (error) {
+      console.error(`Error reading file: ${filePath}`, error)
+      return ''
+    }
+  }
+
+  async #parseAction(filePath) {
+    const content = await this.#readFile(filePath)
+    const info = { inputs: {}, exits: {}, fnLine: 0 }
+
+    // Extract inputs
+    const inputsMatch = content.match(/inputs\s*:\s*\{([\s\S]*?)\}/)
+    if (inputsMatch) {
+      for (const inputMatch of inputsMatch[1].matchAll(
+        /(\w+)\s*:\s*\{[^}]*type\s*:\s*['"](\w+)['"]/g
+      )) {
+        info.inputs[inputMatch[1]] = inputMatch[2]
+      }
+    }
+
+    // Extract exits
+    const exitsMatch = content.match(/exits\s*:\s*\{([\s\S]*?)\}/)
+    if (exitsMatch) {
+      for (const exitMatch of exitsMatch[1].matchAll(/(\w+)\s*:/g)) {
+        info.exits[exitMatch[1]] = true
+      }
+    }
+
+    // Find the line number of the `fn` function
+    const lines = content.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      if (/fn\s*:\s*(async\s*)?function/.test(lines[i])) {
+        info.fnLine = i + 1
+        break
+      }
+    }
+
+    return info
+  }
+
+  async #parseRoutesWithActions() {
+    const routesPath = path.join(this.rootDir, 'config', 'routes.js')
+    const actionsRoot = path.join(this.rootDir, 'api', 'controllers')
+    const content = await this.#readFile(routesPath)
+    const routes = {}
+
+    const regex = /['"]([^'"]+)['"]\s*:\s*['"]([^'"]+)['"]/g
+    let match
+    while ((match = regex.exec(content))) {
+      const route = match[1]
+      const actionName = match[2]
+      const filePath = path.join(actionsRoot, ...actionName.split('/')) + '.js'
+
+      const actionInfo = await this.#parseAction(filePath)
+
+      routes[route] = {
+        action: {
+          name: actionName,
+          path: filePath,
+          ...actionInfo
+        }
+      }
+    }
+
+    return routes
+  }
+  async #parseModels() {
+    const dir = path.join(this.rootDir, 'api', 'models')
+    const models = {}
+
+    // Define Waterline static and chainable methods
+    const STATIC_METHODS = [
+      {
+        name: 'find',
+        description: 'Retrieve all records matching criteria.'
+      },
+      {
+        name: 'findOne',
+        description: 'Retrieve a single record matching criteria.'
+      },
+      {
+        name: 'create',
+        description: 'Create a new record.'
+      },
+      {
+        name: 'createEach',
+        description: 'Create multiple new records in a batch.'
+      },
+      {
+        name: 'update',
+        description: 'Update records matching criteria.'
+      },
+      {
+        name: 'destroy',
+        description: 'Delete records matching criteria.'
+      },
+      {
+        name: 'count',
+        description: 'Count records matching criteria.'
+      },
+      {
+        name: 'replaceCollection',
+        description: 'Replace all items in a collection association.'
+      },
+      {
+        name: 'addToCollection',
+        description: 'Add items to a collection association.'
+      },
+      {
+        name: 'removeFromCollection',
+        description: 'Remove items from a collection association.'
+      },
+      {
+        name: 'findOrCreate',
+        description: 'Find a record or create it if it does not exist.'
+      },
+      {
+        name: 'findOrCreateEach',
+        description: 'Find or create multiple records in a batch.'
+      }
+    ]
+
+    const CHAINABLE_METHODS = [
+      {
+        name: 'where',
+        description: 'Filter records by criteria.'
+      },
+      {
+        name: 'limit',
+        description: 'Limit the number of records returned.'
+      },
+      {
+        name: 'skip',
+        description: 'Skip a number of records (for pagination).'
+      },
+      {
+        name: 'sort',
+        description: 'Sort records by specified attributes.'
+      },
+      {
+        name: 'populate',
+        description: 'Populate associated records.'
+      },
+      {
+        name: 'select',
+        description: 'Select only specific attributes to return.'
+      },
+      {
+        name: 'omit',
+        description: 'Omit specific attributes from the result.'
+      },
+      {
+        name: 'meta',
+        description: 'Pass additional options to the query.'
+      },
+      {
+        name: 'decrypt',
+        description: 'Decrypt encrypted attributes in the result.'
+      }
+    ]
+
+    if (!(await this.#directoryExists(dir))) return models
+
+    const files = await fs.readdir(dir)
+    for (const file of files) {
+      if (!file.endsWith('.js')) continue
+
+      const name = file.slice(0, -3)
+      const modelPath = path.join(dir, file)
+
+      try {
+        const model = require(modelPath)
+        const info = {
+          path: modelPath,
+          methods: STATIC_METHODS,
+          chainableMethods: CHAINABLE_METHODS,
+          attributes: { ...model.attributes }
+        }
+
+        const modelsConfigPath = path.join(this.rootDir, 'config', 'models.js')
+
+        if (await fs.stat(modelsConfigPath)) {
+          const modelsConfig = require(modelsConfigPath)
+          if (modelsConfig.attributes) {
+            info.attributes = { ...modelsConfig.attributes, ...info.attributes }
+          }
+        }
+        models[name] = info
+      } catch (err) {
+        console.error(`Error requiring model: ${file}`, err)
+      }
+    }
+    return models
+  }
+
+  async #parseViews() {
+    const dir = path.join(this.rootDir, 'views')
+    const views = {}
+
+    if (await this.#directoryExists(dir)) {
+      const collect = async (base, rel = '') => {
+        const entries = await fs.readdir(base, { withFileTypes: true })
+        for (const entry of entries) {
+          const relPath = path.join(rel, entry.name)
+          const fullPath = path.join(base, entry.name)
+          if (entry.isDirectory()) {
+            await collect(fullPath, relPath)
+          } else if (entry.isFile() && entry.name.endsWith('.ejs')) {
+            const viewKey = relPath.replace(/\.ejs$/, '').replace(/\\/g, '/')
+            views[viewKey] = {
+              path: fullPath
+            }
+          }
+        }
+      }
+      await collect(dir)
+    }
+
+    return views
+  }
+
+  async #parsePages() {
+    const dir = path.join(this.rootDir, 'assets', 'js', 'pages')
+    const pages = {}
+
+    if (await this.#directoryExists(dir)) {
+      const collect = async (base, rel = '') => {
+        const entries = await fs.readdir(base, { withFileTypes: true })
+        for (const entry of entries) {
+          const relPath = path.join(rel, entry.name)
+          const fullPath = path.join(base, entry.name)
+          if (entry.isDirectory()) {
+            await collect(fullPath, relPath)
+          } else if (
+            entry.isFile() &&
+            /\.(vue|js|ts|jsx|tsx|svelte|html)$/.test(entry.name)
+          ) {
+            const pageKey = relPath
+              .replace(/\.(vue|js|ts|jsx|tsx|svelte|html)$/, '')
+              .replace(/\\/g, '/')
+            pages[pageKey] = { path: fullPath }
+          }
+        }
+      }
+      await collect(dir)
+    }
+
+    return pages
+  }
+  async #parsePolicies() {
+    const dir = path.join(this.rootDir, 'api', 'policies')
+    const policies = {}
+
+    if (await this.#directoryExists(dir)) {
+      const files = await fs.readdir(dir)
+      for (const file of files) {
+        if (file.endsWith('.js')) {
+          const name = file.replace(/\.js$/, '')
+          const fullPath = path.join(dir, file)
+          policies[name] = { path: fullPath }
+        }
+      }
+    }
+
+    return policies
+  }
+
+  async #parseHelpers() {
+    const dir = path.join(this.rootDir, 'api', 'helpers')
+    const helpers = {}
+    if (await this.#directoryExists(dir)) {
+      const collect = async (base, rel = '') => {
+        const entries = await fs.readdir(base, { withFileTypes: true })
+        for (const entry of entries) {
+          const relPath = path.join(rel, entry.name)
+          const fullPath = path.join(base, entry.name)
+          if (entry.isDirectory()) {
+            await collect(fullPath, relPath)
+          } else if (entry.isFile() && entry.name.endsWith('.js')) {
+            const name = relPath.replace(/\.js$/, '').replace(/\\/g, '/')
+            const content = await this.#readFile(fullPath)
+            // Find the line number of the `fn` function
+            let fnLine = 0
+            const lines = content.split('\n')
+            for (let i = 0; i < lines.length; i++) {
+              if (/fn\s*:\s*(async\s*)?function/.test(lines[i])) {
+                fnLine = i + 1
+                break
+              }
+            }
+            helpers[name] = { path: fullPath, fnLine }
+          }
+        }
+      }
+      await collect(dir)
+    }
+    return helpers
+  }
+
+  #getDataTypes() {
+    return [
+      {
+        type: 'string',
+        description: 'Any string.'
+      },
+      { type: 'number', description: 'Any number.' },
+      { type: 'boolean', description: 'True or false.' },
+      {
+        type: 'json',
+        description:
+          'Any JSON-serializable value, including numbers, booleans, strings, arrays, dictionaries (plain JavaScript objects), and null.'
+      },
+      { type: 'ref', description: 'Any JavaScript value except undefined' }
+    ]
+  }
+  #getSharedAttributeProperties() {
+    return [
+      { label: 'type', detail: 'Data type of the attribute/input' },
+      { label: 'required', detail: 'If true, this field is mandatory' },
+      { label: 'defaultsTo', detail: 'Default value if not provided' },
+      { label: 'allowNull', detail: 'Allow null values' },
+      { label: 'description', detail: 'Description for documentation' },
+      {
+        label: 'extendedDescription',
+        detail: 'Longer, more detailed description for documentation'
+      },
+      { label: 'example', detail: 'Example value' },
+      { label: 'isIn', detail: 'Enum of allowed values' }
+    ]
+  }
+  #getModelProperties() {
+    return [
+      { label: 'columnName', detail: 'Custom database column name' },
+      { label: 'unique', detail: 'Must be unique across records' },
+      { label: 'autoIncrement', detail: 'Auto-increment this field' },
+      { label: 'primaryKey', detail: 'Marks as primary key' },
+      { label: 'model', detail: 'Reference to another model' },
+      { label: 'collection', detail: 'Association with other records' },
+      { label: 'via', detail: 'Used for collection associations' },
+      { label: 'dominant', detail: 'Used in many-to-many relationships' }
+    ]
+  }
+  #getModelAttributeProperties() {
+    return [
+      ...this.#getSharedAttributeProperties(),
+      ...this.#getModelProperties()
+    ]
+  }
+
+  #getInputProperties() {
+    return this.#getSharedAttributeProperties()
+  }
+  async buildTypeMap() {
+    const [routes, models, views, pages, policies, helpers] = await Promise.all(
+      [
+        this.#parseRoutesWithActions(),
+        this.#parseModels(),
+        this.#parseViews(),
+        this.#parsePages(),
+        this.#parsePolicies(),
+        this.#parseHelpers()
+      ]
+    )
+
+    return {
+      routes,
+      models,
+      views,
+      pages,
+      policies,
+      helpers,
+      dataTypes: this.#getDataTypes(),
+      modelAttributeProps: this.#getModelAttributeProperties(),
+      inputProps: this.#getInputProperties()
+    }
+  }
+
+  async #directoryExists(dirPath) {
+    try {
+      const stat = await fs.stat(dirPath)
+      return stat.isDirectory()
+    } catch {
+      return false
+    }
+  }
+}
+
+module.exports = SailsParser
