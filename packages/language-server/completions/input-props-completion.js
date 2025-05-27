@@ -13,6 +13,10 @@ module.exports = function inputPropsCompletion(document, position, typeMap) {
   const offset = document.offsetAt(position)
   const before = text.substring(0, offset)
 
+  // Check if the cursor is on a new line
+  const prevChar = text[offset - 1]
+
+  if (prevChar === ',') return []
   // Check we're inside the inputs: { ... } section
   const insideInputs = /inputs\s*:\s*{[\s\S]*$/.test(before)
   if (!insideInputs) return []
