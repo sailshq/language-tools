@@ -5,6 +5,7 @@ module.exports = function modelAttributesCompletion(
   position,
   typeMap
 ) {
+  console.log(JSON.stringify(typeMap.models, null, 2))
   const JS_FILE_TYPES = ['helpers', 'controllers', 'scripts', 'models']
   const isRelevantFile = JS_FILE_TYPES.some((type) =>
     document.uri.includes(`${type}/`)
