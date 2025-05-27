@@ -1,5 +1,7 @@
 const fs = require('fs').promises
 const path = require('path')
+const acorn = require('acorn')
+const walk = require('acorn-walk')
 
 class SailsParser {
   constructor(rootDir) {
@@ -83,36 +85,20 @@ class SailsParser {
     const dir = path.join(this.rootDir, 'api', 'models')
     const models = {}
 
-    // Define Waterline static and chainable methods
     const STATIC_METHODS = [
-      {
-        name: 'find',
-        description: 'Retrieve all records matching criteria.'
-      },
+      { name: 'find', description: 'Retrieve all records matching criteria.' },
       {
         name: 'findOne',
         description: 'Retrieve a single record matching criteria.'
       },
-      {
-        name: 'create',
-        description: 'Create a new record.'
-      },
+      { name: 'create', description: 'Create a new record.' },
       {
         name: 'createEach',
         description: 'Create multiple new records in a batch.'
       },
-      {
-        name: 'update',
-        description: 'Update records matching criteria.'
-      },
-      {
-        name: 'destroy',
-        description: 'Delete records matching criteria.'
-      },
-      {
-        name: 'count',
-        description: 'Count records matching criteria.'
-      },
+      { name: 'update', description: 'Update records matching criteria.' },
+      { name: 'destroy', description: 'Delete records matching criteria.' },
+      { name: 'count', description: 'Count records matching criteria.' },
       {
         name: 'replaceCollection',
         description: 'Replace all items in a collection association.'
@@ -136,26 +122,14 @@ class SailsParser {
     ]
 
     const CHAINABLE_METHODS = [
-      {
-        name: 'where',
-        description: 'Filter records by criteria.'
-      },
-      {
-        name: 'limit',
-        description: 'Limit the number of records returned.'
-      },
+      { name: 'where', description: 'Filter records by criteria.' },
+      { name: 'limit', description: 'Limit the number of records returned.' },
       {
         name: 'skip',
         description: 'Skip a number of records (for pagination).'
       },
-      {
-        name: 'sort',
-        description: 'Sort records by specified attributes.'
-      },
-      {
-        name: 'populate',
-        description: 'Populate associated records.'
-      },
+      { name: 'sort', description: 'Sort records by specified attributes.' },
+      { name: 'populate', description: 'Populate associated records.' },
       {
         name: 'select',
         description: 'Select only specific attributes to return.'
@@ -164,50 +138,176 @@ class SailsParser {
         name: 'omit',
         description: 'Omit specific attributes from the result.'
       },
-      {
-        name: 'meta',
-        description: 'Pass additional options to the query.'
-      },
+      { name: 'meta', description: 'Pass additional options to the query.' },
       {
         name: 'decrypt',
         description: 'Decrypt encrypted attributes in the result.'
       }
     ]
-
+    const context = this
     if (!(await this.#directoryExists(dir))) return models
 
     const files = await fs.readdir(dir)
+
+    // Retrieve attributes from config/models.js
+    let defaultAttributes = {}
+    const modelsConfigPath = path.join(this.rootDir, 'config', 'models.js')
+    if (await this.#fileExists(modelsConfigPath)) {
+      try {
+        const configCode = await fs.readFile(modelsConfigPath, 'utf8')
+        const configAST = acorn.parse(configCode, {
+          ecmaVersion: 'latest',
+          sourceType: 'module'
+        })
+
+        walk.simple(configAST, {
+          AssignmentExpression(node) {
+            // Support: module.exports = { attributes: ... } and { models: { attributes: ... } }
+            if (
+              node.left.type === 'MemberExpression' &&
+              node.left.object.name === 'module' &&
+              node.left.property.name === 'exports' &&
+              node.right.type === 'ObjectExpression'
+            ) {
+              for (const prop of node.right.properties) {
+                if (
+                  prop.key?.name === 'attributes' &&
+                  prop.value?.type === 'ObjectExpression'
+                ) {
+                  defaultAttributes = context.#extractObjectLiteral(prop.value)
+                }
+                if (
+                  prop.key?.name === 'models' &&
+                  prop.value?.type === 'ObjectExpression'
+                ) {
+                  for (const inner of prop.value.properties) {
+                    if (
+                      inner.key?.name === 'attributes' &&
+                      inner.value?.type === 'ObjectExpression'
+                    ) {
+                      defaultAttributes = context.#extractObjectLiteral(
+                        inner.value
+                      )
+                    }
+                  }
+                }
+              }
+            }
+            // Support: module.exports.models = { attributes: ... }
+            if (
+              node.left.type === 'MemberExpression' &&
+              node.left.object.type === 'MemberExpression' &&
+              node.left.object.object.name === 'module' &&
+              node.left.object.property.name === 'exports' &&
+              node.left.property.name === 'models' &&
+              node.right.type === 'ObjectExpression'
+            ) {
+              for (const prop of node.right.properties) {
+                if (
+                  prop.key?.name === 'attributes' &&
+                  prop.value?.type === 'ObjectExpression'
+                ) {
+                  defaultAttributes = context.#extractObjectLiteral(prop.value)
+                }
+              }
+            }
+          }
+        })
+      } catch (err) {
+        console.error('Error parsing config/models.js', err)
+      }
+    }
+
     for (const file of files) {
       if (!file.endsWith('.js')) continue
 
       const name = file.slice(0, -3)
       const modelPath = path.join(dir, file)
+      let attributes = {}
+      const context = this
 
       try {
-        const model = require(modelPath)
-        const info = {
-          path: modelPath,
-          methods: STATIC_METHODS,
-          chainableMethods: CHAINABLE_METHODS,
-          attributes: { ...model.attributes }
-        }
+        const code = await fs.readFile(modelPath, 'utf8')
+        const ast = acorn.parse(code, {
+          ecmaVersion: 'latest',
+          sourceType: 'module'
+        })
 
-        const modelsConfigPath = path.join(this.rootDir, 'config', 'models.js')
-
-        if (await fs.stat(modelsConfigPath)) {
-          const modelsConfig = require(modelsConfigPath)
-          if (modelsConfig.attributes) {
-            info.attributes = { ...modelsConfig.attributes, ...info.attributes }
+        walk.simple(ast, {
+          AssignmentExpression(node) {
+            // Handle: module.exports = { attributes: ... }
+            if (
+              node.left.type === 'MemberExpression' &&
+              node.left.object.name === 'module' &&
+              node.left.property.name === 'exports' &&
+              node.right.type === 'ObjectExpression'
+            ) {
+              for (const prop of node.right.properties) {
+                if (
+                  prop.key?.name === 'attributes' &&
+                  prop.value?.type === 'ObjectExpression'
+                ) {
+                  attributes = context.#extractObjectLiteral(prop.value)
+                }
+              }
+            }
+            // Legacy: module.exports.attributes = { ... }
+            else if (
+              node.left.type === 'MemberExpression' &&
+              node.left.object.type === 'MemberExpression' &&
+              node.left.object.object.name === 'module' &&
+              node.left.object.property.name === 'exports' &&
+              node.left.property.name === 'attributes' &&
+              node.right.type === 'ObjectExpression'
+            ) {
+              attributes = context.#extractObjectLiteral(node.right)
+            }
+          },
+          ExportDefaultDeclaration(node) {
+            if (node.declaration.type === 'ObjectExpression') {
+              for (const prop of node.declaration.properties) {
+                if (
+                  prop.key?.name === 'attributes' &&
+                  prop.value?.type === 'ObjectExpression'
+                ) {
+                  attributes = context.#extractObjectLiteral(prop.value)
+                }
+              }
+            }
           }
-        }
-        models[name] = info
+        })
       } catch (err) {
-        console.error(`Error requiring model: ${file}`, err)
+        console.error(`Error parsing model: ${file}`, err)
+        continue
+      }
+
+      // Merge defaultAttributes first, then model attributes (model overrides default)
+      const mergedAttributes = {}
+      for (const key of Object.keys(defaultAttributes)) {
+        mergedAttributes[key] = defaultAttributes[key]
+      }
+      for (const key of Object.keys(attributes)) {
+        mergedAttributes[key] = attributes[key]
+      }
+      models[name] = {
+        path: modelPath,
+        methods: STATIC_METHODS,
+        chainableMethods: CHAINABLE_METHODS,
+        attributes: mergedAttributes
       }
     }
+
     return models
   }
 
+  async #fileExists(filePath) {
+    try {
+      const stat = await fs.stat(filePath)
+      return stat.isFile()
+    } catch {
+      return false
+    }
+  }
   async #parseViews() {
     const dir = path.join(this.rootDir, 'views')
     const views = {}
@@ -311,7 +411,38 @@ class SailsParser {
     }
     return helpers
   }
-
+  #extractObjectLiteral(node) {
+    if (node.type !== 'ObjectExpression') return undefined
+    const obj = {}
+    for (const prop of node.properties) {
+      if (prop.type === 'Property') {
+        const key =
+          prop.key.type === 'Identifier' ? prop.key.name : prop.key.value
+        let value
+        if (prop.value.type === 'ObjectExpression') {
+          value = this.#extractObjectLiteral(prop.value)
+        } else if (prop.value.type === 'ArrayExpression') {
+          value = prop.value.elements.map((el) =>
+            el.type === 'ObjectExpression'
+              ? this.#extractObjectLiteral(el)
+              : el.type === 'Literal'
+                ? el.value
+                : el.type === 'Identifier'
+                  ? el.name
+                  : undefined
+          )
+        } else if (prop.value.type === 'Literal') {
+          value = prop.value.value
+        } else if (prop.value.type === 'Identifier') {
+          value = prop.value.name
+        } else {
+          value = undefined
+        }
+        obj[key] = value
+      }
+    }
+    return obj
+  }
   #getDataTypes() {
     return [
       {
