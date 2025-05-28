@@ -4,6 +4,7 @@ const validatePageExist = require('./validate-page-exist')
 const validateDataTypes = require('./validate-data-type')
 const validatePolicyExist = require('./validate-policy-exist')
 const validateModelAttributeExist = require('./validate-model-attribute-exist')
+const validateViewExist = require('./validate-view-exist')
 module.exports = function validateDocument(connection, document, typeMap) {
   const diagnostics = []
 
@@ -16,13 +17,15 @@ module.exports = function validateDocument(connection, document, typeMap) {
     document,
     typeMap
   )
+  const viewDiagnostics = validateViewExist(document, typeMap)
   diagnostics.push(
     ...modelDiagnostics,
     ...actionDiagnostics,
     ...pageDiagnostics,
     ...dataTypeDiagnostics,
     ...policyDiagnostics,
-    ...modelAttributeDiagnostics
+    ...modelAttributeDiagnostics,
+    ...viewDiagnostics
   )
 
   connection.sendDiagnostics({ uri: document.uri, diagnostics })
