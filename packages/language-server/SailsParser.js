@@ -405,23 +405,75 @@ class SailsParser {
             }
             // Extract inputs using acorn
             let inputs = {}
+            const context = this
             try {
               const ast = acorn.parse(content, {
                 ecmaVersion: 'latest',
                 sourceType: 'module'
               })
               walk.simple(ast, {
-                Property(node) {
+                AssignmentExpression(node) {
+                  // Only handle: module.exports = { ... }
                   if (
-                    node.key &&
-                    node.key.name === 'inputs' &&
-                    node.value.type === 'ObjectExpression'
+                    node.left.type === 'MemberExpression' &&
+                    node.left.object.name === 'module' &&
+                    node.left.property.name === 'exports' &&
+                    node.right.type === 'ObjectExpression'
                   ) {
-                    inputs = context.#extractObjectLiteral(node.value)
+                    if (!inputs || Object.keys(inputs).length === 0) {
+                      for (const prop of node.right.properties) {
+                        if (
+                          prop.key &&
+                          prop.key.name === 'inputs' &&
+                          prop.value.type === 'ObjectExpression'
+                        ) {
+                          inputs = context.#extractObjectLiteral(prop.value)
+                        }
+                      }
+                    }
+                  }
+                },
+                ExportDefaultDeclaration(node) {
+                  // Handle: export default { ... }
+                  if (
+                    node.declaration &&
+                    node.declaration.type === 'ObjectExpression'
+                  ) {
+                    for (const prop of node.declaration.properties) {
+                      if (
+                        prop.key &&
+                        prop.key.name === 'inputs' &&
+                        prop.value.type === 'ObjectExpression'
+                      ) {
+                        inputs = context.#extractObjectLiteral(prop.value)
+                      }
+                    }
                   }
                 }
               })
             } catch (e) {}
+            // Fallback: regex extract inputs if still empty
+            if (!inputs || Object.keys(inputs).length === 0) {
+              const match = content.match(/inputs\s*:\s*\{([\s\S]*?)\n\s*\}/m)
+              if (match) {
+                try {
+                  // Try to parse as JS object
+                  const fakeObj = `({${match[1]}})`
+                  const ast = acorn.parse(fakeObj, { ecmaVersion: 'latest' })
+                  let obj = {}
+                  walk.simple(ast, {
+                    ObjectExpression(node) {
+                      if (!obj || Object.keys(obj).length === 0) {
+                        obj = context.#extractObjectLiteral(node)
+                      }
+                    }
+                  })
+                  if (obj && Object.keys(obj).length > 0) {
+                    inputs = obj
+                  }
+                } catch (e) {}
+              }
+            }
             helpers[name] = { path: fullPath, fnLine, inputs }
           }
         }
