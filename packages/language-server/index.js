@@ -24,6 +24,7 @@ const policiesCompletion = require('./completions/policies-completion')
 const viewsCompletion = require('./completions/views-completion')
 const modelMethodsCompletion = require('./completions/model-methods-completion')
 const modelAttributesCompletion = require('./completions/model-attributes-completion')
+const helperInputsCompletion = require('./completions/helper-inputs-completion')
 const helpersCompletion = require('./completions/helpers-completion')
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
@@ -104,30 +105,60 @@ connection.onDefinition(async (params) => {
 
 connection.onCompletion(async (params) => {
   const document = documents.get(params.textDocument.uri)
-  if (!document) return []
-  const position = params.position
+  if (!document) {
+    return null
+  }
+  const [
+    actionCompletion,
+    dataTypeCompletion,
+    modelAttributePropCompletion,
+    inputPropCompletion,
+    inertiaPageCompletion,
+    modelCompletion,
+    policyCompletion,
+    viewCompletion,
+    modelMethodCompletion,
+    modelAttributeCompletion,
+    helperCompletion,
+    helperInputCompletion
+  ] = await Promise.all([
+    actionsCompletion(document, params.position, typeMap),
+    dataTypesCompletion(document, params.position, typeMap),
+    modelAttributePropsCompletion(document, params.position, typeMap),
+    inputPropsCompletion(document, params.position, typeMap),
+    inertiaPagesCompletion(document, params.position, typeMap),
+    modelsCompletion(document, params.position, typeMap),
+    policiesCompletion(document, params.position, typeMap),
+    viewsCompletion(document, params.position, typeMap),
+    modelMethodsCompletion(document, params.position, typeMap),
+    modelAttributesCompletion(document, params.position, typeMap),
+    helpersCompletion(document, params.position, typeMap),
+    helperInputsCompletion(document, params.position, typeMap)
+  ])
 
-  // Check if helpersCompletion is triggered and return only those if so
-  const helpers = helpersCompletion(document, position, typeMap) || []
-  if (helpers.length > 0) {
-    return helpers
+  const completions = [
+    ...actionCompletion,
+    ...dataTypeCompletion,
+    ...modelAttributePropCompletion,
+    ...inputPropCompletion,
+    ...inertiaPageCompletion,
+    ...modelCompletion,
+    ...policyCompletion,
+    ...viewCompletion,
+    ...modelMethodCompletion,
+    ...modelAttributeCompletion,
+    ...helperCompletion,
+    ...helperInputCompletion
+  ].filter(Boolean)
+
+  if (completions) {
+    return {
+      isIncomplete: false,
+      items: completions
+    }
   }
 
-  // Otherwise, compose completions from all other providers
-  let completions = []
-  completions = completions.concat(
-    actionsCompletion(document, position, typeMap) || [],
-    dataTypesCompletion(document, position, typeMap) || [],
-    modelAttributePropsCompletion(document, position, typeMap) || [],
-    inputPropsCompletion(document, position, typeMap) || [],
-    inertiaPagesCompletion(document, position, typeMap) || [],
-    modelsCompletion(document, position, typeMap) || [],
-    policiesCompletion(document, position, typeMap) || [],
-    viewsCompletion(document, position, typeMap) || [],
-    modelMethodsCompletion(document, position, typeMap) || [],
-    modelAttributesCompletion(document, position, typeMap) || []
-  )
-  return completions
+  return null
 })
 
 documents.listen(connection)
