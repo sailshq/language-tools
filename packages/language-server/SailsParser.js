@@ -403,8 +403,9 @@ class SailsParser {
                 break
               }
             }
-            // Extract inputs using acorn
+            // Extract inputs and description using acorn
             let inputs = {}
+            let description = undefined
             const context = this
             try {
               const ast = acorn.parse(content, {
@@ -420,14 +421,26 @@ class SailsParser {
                     node.left.property.name === 'exports' &&
                     node.right.type === 'ObjectExpression'
                   ) {
-                    if (!inputs || Object.keys(inputs).length === 0) {
-                      for (const prop of node.right.properties) {
-                        if (
-                          prop.key &&
-                          prop.key.name === 'inputs' &&
-                          prop.value.type === 'ObjectExpression'
-                        ) {
-                          inputs = context.#extractObjectLiteral(prop.value)
+                    for (const prop of node.right.properties) {
+                      if (
+                        prop.key &&
+                        prop.key.name === 'inputs' &&
+                        prop.value.type === 'ObjectExpression'
+                      ) {
+                        inputs = context.#extractObjectLiteral(prop.value)
+                      }
+                      if (
+                        prop.key &&
+                        prop.key.name === 'description' &&
+                        (prop.value.type === 'Literal' ||
+                          prop.value.type === 'TemplateLiteral')
+                      ) {
+                        if (prop.value.type === 'Literal') {
+                          description = prop.value.value
+                        } else if (prop.value.type === 'TemplateLiteral') {
+                          description = prop.value.quasis
+                            .map((q) => q.value.cooked)
+                            .join('')
                         }
                       }
                     }
@@ -447,12 +460,26 @@ class SailsParser {
                       ) {
                         inputs = context.#extractObjectLiteral(prop.value)
                       }
+                      if (
+                        prop.key &&
+                        prop.key.name === 'description' &&
+                        (prop.value.type === 'Literal' ||
+                          prop.value.type === 'TemplateLiteral')
+                      ) {
+                        if (prop.value.type === 'Literal') {
+                          description = prop.value.value
+                        } else if (prop.value.type === 'TemplateLiteral') {
+                          description = prop.value.quasis
+                            .map((q) => q.value.cooked)
+                            .join('')
+                        }
+                      }
                     }
                   }
                 }
               })
             } catch (e) {}
-            // Fallback: regex extract inputs if still empty
+            // Fallback: regex extract inputs/description if still empty
             if (!inputs || Object.keys(inputs).length === 0) {
               const match = content.match(/inputs\s*:\s*\{([\s\S]*?)\n\s*\}/m)
               if (match) {
@@ -474,7 +501,16 @@ class SailsParser {
                 } catch (e) {}
               }
             }
-            helpers[name] = { path: fullPath, fnLine, inputs }
+            if (!description) {
+              // Try to extract description: '...' or description: "..."
+              const descMatch = content.match(
+                /description\s*:\s*(['"])([\s\S]*?)\1/
+              )
+              if (descMatch) {
+                description = descMatch[2]
+              }
+            }
+            helpers[name] = { path: fullPath, fnLine, inputs, description }
           }
         }
       }

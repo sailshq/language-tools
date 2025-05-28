@@ -65,7 +65,7 @@ module.exports = function helpersCompletion(document, position, typeMap) {
         return {
           label: kebabToCamel(k),
           kind: CompletionItemKind.Method,
-          detail: `Helper: ${v.__key}`,
+          detail: helperInfo.description || 'Helper function',
           documentation: helperInfo.path || '',
           insertText: hasInputs
             ? `${kebabToCamel(k)}.with({$0})`
