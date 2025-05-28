@@ -64,7 +64,7 @@ module.exports = function helpersCompletion(document, position, typeMap) {
           detail: `Helper: ${v.__key}`,
           documentation: helperInfo.path || '',
           insertText: hasInputs
-            ? `${kebabToCamel(k)}.with({ $1 })`
+            ? `${kebabToCamel(k)}.with({$0})`
             : `${kebabToCamel(k)}()`,
           insertTextFormat: 2 // Snippet
         }
