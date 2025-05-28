@@ -403,7 +403,114 @@ class SailsParser {
                 break
               }
             }
-            helpers[name] = { path: fullPath, fnLine }
+            // Extract inputs and description using acorn
+            let inputs = {}
+            let description = undefined
+            const context = this
+            try {
+              const ast = acorn.parse(content, {
+                ecmaVersion: 'latest',
+                sourceType: 'module'
+              })
+              walk.simple(ast, {
+                AssignmentExpression(node) {
+                  // Only handle: module.exports = { ... }
+                  if (
+                    node.left.type === 'MemberExpression' &&
+                    node.left.object.name === 'module' &&
+                    node.left.property.name === 'exports' &&
+                    node.right.type === 'ObjectExpression'
+                  ) {
+                    for (const prop of node.right.properties) {
+                      if (
+                        prop.key &&
+                        prop.key.name === 'inputs' &&
+                        prop.value.type === 'ObjectExpression'
+                      ) {
+                        inputs = context.#extractObjectLiteral(prop.value)
+                      }
+                      if (
+                        prop.key &&
+                        prop.key.name === 'description' &&
+                        (prop.value.type === 'Literal' ||
+                          prop.value.type === 'TemplateLiteral')
+                      ) {
+                        if (prop.value.type === 'Literal') {
+                          description = prop.value.value
+                        } else if (prop.value.type === 'TemplateLiteral') {
+                          description = prop.value.quasis
+                            .map((q) => q.value.cooked)
+                            .join('')
+                        }
+                      }
+                    }
+                  }
+                },
+                ExportDefaultDeclaration(node) {
+                  // Handle: export default { ... }
+                  if (
+                    node.declaration &&
+                    node.declaration.type === 'ObjectExpression'
+                  ) {
+                    for (const prop of node.declaration.properties) {
+                      if (
+                        prop.key &&
+                        prop.key.name === 'inputs' &&
+                        prop.value.type === 'ObjectExpression'
+                      ) {
+                        inputs = context.#extractObjectLiteral(prop.value)
+                      }
+                      if (
+                        prop.key &&
+                        prop.key.name === 'description' &&
+                        (prop.value.type === 'Literal' ||
+                          prop.value.type === 'TemplateLiteral')
+                      ) {
+                        if (prop.value.type === 'Literal') {
+                          description = prop.value.value
+                        } else if (prop.value.type === 'TemplateLiteral') {
+                          description = prop.value.quasis
+                            .map((q) => q.value.cooked)
+                            .join('')
+                        }
+                      }
+                    }
+                  }
+                }
+              })
+            } catch (e) {}
+            // Fallback: regex extract inputs/description if still empty
+            if (!inputs || Object.keys(inputs).length === 0) {
+              const match = content.match(/inputs\s*:\s*\{([\s\S]*?)\n\s*\}/m)
+              if (match) {
+                try {
+                  // Try to parse as JS object
+                  const fakeObj = `({${match[1]}})`
+                  const ast = acorn.parse(fakeObj, { ecmaVersion: 'latest' })
+                  let obj = {}
+                  walk.simple(ast, {
+                    ObjectExpression(node) {
+                      if (!obj || Object.keys(obj).length === 0) {
+                        obj = context.#extractObjectLiteral(node)
+                      }
+                    }
+                  })
+                  if (obj && Object.keys(obj).length > 0) {
+                    inputs = obj
+                  }
+                } catch (e) {}
+              }
+            }
+            if (!description) {
+              // Try to extract description: '...' or description: "..."
+              const descMatch = content.match(
+                /description\s*:\s*(['"])([\s\S]*?)\1/
+              )
+              if (descMatch) {
+                description = descMatch[2]
+              }
+            }
+            helpers[name] = { path: fullPath, fnLine, inputs, description }
           }
         }
       }
@@ -411,6 +518,7 @@ class SailsParser {
     }
     return helpers
   }
+
   #extractObjectLiteral(node) {
     if (node.type !== 'ObjectExpression') return undefined
     const obj = {}
