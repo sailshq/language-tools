@@ -10,8 +10,7 @@ module.exports = async function goToHelper(document, position, typeMap) {
   const offset = document.offsetAt(position)
 
   // Match sails.helpers.foo, sails.helpers.foo(), sails.helpers.foo.with(), sails.helpers.foo.with({}), sails.helpers.bar.baz.with({}), etc.
-  const regex =
-    /\bsails\.helpers((?:\.[a-zA-Z0-9_]+)+)(?:\s*\(|(?:\.with)?\s*\()?/g
+  const regex = /\bsails\.helpers((?:\.[a-zA-Z0-9_]+)+)(?=\.with|\s*\()/g
 
   let match
 
