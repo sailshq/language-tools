@@ -13,8 +13,8 @@ function getHelperPath(line) {
 function getInputCompletionItems(inputsObj) {
   if (!inputsObj || typeof inputsObj !== 'object') return []
   return Object.entries(inputsObj).map(([inputName, inputDef]) => {
-    let type = inputDef?.type || ''
-    let required = inputDef?.required ? 'required' : 'optional'
+    let type = inputDef?.type
+    let required = inputDef?.required ? true : false
     let description = inputDef?.description || ''
     let detail = type ? `${type} (${required})` : required
     return {
