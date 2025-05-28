@@ -18,6 +18,14 @@ module.exports = function helpersCompletion(document, position, typeMap) {
     start: { line: position.line, character: 0 },
     end: position
   })
+  // Prevent helpers completion inside .with({ ... })
+  if (/\.with\s*\(\s*\{[^}]*$/.test(line)) {
+    return []
+  }
+  // Prevent helpers completion inside sails.helpers.foo({ ... })
+  if (/sails\.helpers(?:\.[a-zA-Z0-9_]+)+\s*\(\s*\{[^}]*$/.test(line)) {
+    return []
+  }
   const helpers = typeMap.helpers || {}
   const context = getHelpersContext(line.trim())
   if (!line.trim().includes('sails.helpers.')) return []
@@ -48,13 +56,21 @@ module.exports = function helpersCompletion(document, position, typeMap) {
     .filter(([k]) => !k.startsWith('__'))
     .map(([k, v]) => {
       if (v.__isHelper) {
-        // Only camelCase the last segment
+        const helperInfo = helpers[v.__key] || {}
+        // Updated: check if inputs is a non-empty object
+        const hasInputs =
+          helperInfo.inputs &&
+          typeof helperInfo.inputs === 'object' &&
+          Object.keys(helperInfo.inputs).length > 0
         return {
           label: kebabToCamel(k),
           kind: CompletionItemKind.Method,
-          detail: `Helper: ${v.__key}`,
-          documentation: helpers[v.__key].path || '',
-          insertText: kebabToCamel(k)
+          detail: helperInfo.description || 'Helper function',
+          documentation: helperInfo.path || '',
+          insertText: hasInputs
+            ? `${kebabToCamel(k)}.with({$0})`
+            : `${kebabToCamel(k)}()`,
+          insertTextFormat: 2 // Snippet
         }
       } else {
         // Namespace/folder
