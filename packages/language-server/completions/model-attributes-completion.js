@@ -90,13 +90,19 @@ module.exports = function modelAttributesCompletion(
 
   return attributes
     .filter((attr) => attr.startsWith(prefix))
-    .map((attr) => ({
-      label: attr,
-      kind: lsp.CompletionItemKind.Field,
-      detail: `Attribute of ${modelName}`,
-      documentation: `${modelName}.${attr}`,
-      sortText: attr,
-      filterText: attr,
-      insertText: attr
-    }))
+    .map((attr) => {
+      const attrDef = model.attributes && model.attributes[attr]
+      let type = attrDef && attrDef.type ? attrDef.type : ''
+      let required = attrDef && attrDef.required ? 'required' : 'optional'
+      let detail = type ? `${type} (${required})` : required
+      return {
+        label: attr,
+        kind: lsp.CompletionItemKind.Field,
+        detail,
+        documentation: `${modelName}.${attr}`,
+        sortText: attr,
+        filterText: attr,
+        insertText: attr
+      }
+    })
 }
