@@ -403,7 +403,26 @@ class SailsParser {
                 break
               }
             }
-            helpers[name] = { path: fullPath, fnLine }
+            // Extract inputs using acorn
+            let inputs = {}
+            try {
+              const ast = acorn.parse(content, {
+                ecmaVersion: 'latest',
+                sourceType: 'module'
+              })
+              walk.simple(ast, {
+                Property(node) {
+                  if (
+                    node.key &&
+                    node.key.name === 'inputs' &&
+                    node.value.type === 'ObjectExpression'
+                  ) {
+                    inputs = context.#extractObjectLiteral(node.value)
+                  }
+                }
+              })
+            } catch (e) {}
+            helpers[name] = { path: fullPath, fnLine, inputs }
           }
         }
       }
@@ -411,6 +430,7 @@ class SailsParser {
     }
     return helpers
   }
+
   #extractObjectLiteral(node) {
     if (node.type !== 'ObjectExpression') return undefined
     const obj = {}
