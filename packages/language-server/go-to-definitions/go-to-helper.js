@@ -5,25 +5,24 @@ function toKebab(str) {
 }
 
 module.exports = async function goToHelper(document, position, typeMap) {
+  console.log(JSON.stringify(typeMap.helpers, null, 2))
   const text = document.getText()
   const offset = document.offsetAt(position)
 
-  // Match sails.helpers.foo or sails.helpers.bar.baz
-  const regex =
-    /\bsails\.helpers(?:\.(?<group>[a-zA-Z0-9_]+))?\.(?<helper>[a-zA-Z0-9_]+)(?![\w.])/g
+  // Match sails.helpers.foo, sails.helpers.foo(), sails.helpers.foo.with({}), sails.helpers.bar.baz.with({}), etc.
+  const regex = /\bsails\.helpers((?:\.[a-zA-Z0-9_]+)+)(?:\s*\(|\.with\s*\()?/g
 
   let match
 
   while ((match = regex.exec(text)) !== null) {
-    const { group, helper } = match.groups
-
-    const kebabGroup = group ? toKebab(group) : null
-    const kebabHelper = toKebab(helper)
-    const fullHelperName = kebabGroup
-      ? `${kebabGroup}/${kebabHelper}`
-      : kebabHelper
-
-    // Compute accurate range for just the helper name
+    // match[1] is like '.email.sendEmail' or '.foo.bar.baz'
+    const segments = match[1].split('.').filter(Boolean)
+    if (segments.length === 0) continue
+    // Convert all segments to kebab-case
+    const kebabSegments = segments.map(toKebab)
+    const fullHelperName = kebabSegments.join('/')
+    // Compute accurate range for just the helper name (last segment)
+    const helper = segments[segments.length - 1]
     const helperStart = match.index + match[0].lastIndexOf(helper)
     const helperEnd = helperStart + helper.length
 
