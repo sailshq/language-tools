@@ -48,13 +48,21 @@ module.exports = function helpersCompletion(document, position, typeMap) {
     .filter(([k]) => !k.startsWith('__'))
     .map(([k, v]) => {
       if (v.__isHelper) {
-        // Only camelCase the last segment
+        const helperInfo = helpers[v.__key] || {}
+        // Updated: check if inputs is a non-empty object
+        const hasInputs =
+          helperInfo.inputs &&
+          typeof helperInfo.inputs === 'object' &&
+          Object.keys(helperInfo.inputs).length > 0
         return {
           label: kebabToCamel(k),
           kind: CompletionItemKind.Method,
           detail: `Helper: ${v.__key}`,
-          documentation: helpers[v.__key].path || '',
-          insertText: kebabToCamel(k)
+          documentation: helperInfo.path || '',
+          insertText: hasInputs
+            ? `${kebabToCamel(k)}.with({ $1 })`
+            : `${kebabToCamel(k)}()`,
+          insertTextFormat: 2 // Snippet
         }
       } else {
         // Namespace/folder
