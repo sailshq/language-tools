@@ -26,6 +26,7 @@ const modelMethodsCompletion = require('./completions/model-methods-completion')
 const modelAttributesCompletion = require('./completions/model-attributes-completion')
 const helperInputsCompletion = require('./completions/helper-inputs-completion')
 const helpersCompletion = require('./completions/helpers-completion')
+
 const connection = lsp.createConnection(lsp.ProposedFeatures.all)
 const documents = new lsp.TextDocuments(TextDocument)
 
