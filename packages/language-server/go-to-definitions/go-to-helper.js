@@ -5,42 +5,52 @@ function toKebab(str) {
 }
 
 module.exports = async function goToHelper(document, position, typeMap) {
-  console.log(JSON.stringify(typeMap.helpers, null, 2))
   const text = document.getText()
   const offset = document.offsetAt(position)
 
-  // Match sails.helpers.foo, sails.helpers.foo(), sails.helpers.foo.with(), sails.helpers.foo.with({}), sails.helpers.bar.baz.with({}), etc.
-  const regex = /\bsails\.helpers((?:\.[a-zA-Z0-9_]+)+)(?=\.with|\s*\()/g
+  // 1) Capture the helper chain AND optionally .with, .with(), or .with({ ... })
+  //    match[1] = ".foo.bar"  (your segments)
+  //    match[0] = entire "sails.helpers.foo.bar", "sails.helpers.foo.bar.with", "sails.helpers.foo.bar.with()", or "sails.helpers.foo.bar.with({ ... })"
+  const regex =
+    /\bsails\.helpers((?:\.[A-Za-z0-9_]+)+)(?:\.with\s*\((?:[^)]*)\))?/g
 
   let match
-
   while ((match = regex.exec(text)) !== null) {
-    // match[1] is like '.email.sendEmail' or '.foo.bar.baz'
-    const segments = match[1].split('.').filter(Boolean)
-    if (segments.length === 0) continue
-    // Convert all segments to kebab-case
-    const kebabSegments = segments.map(toKebab)
-    const fullHelperName = kebabSegments.join('/')
-    // Compute accurate range for just the helper name (last segment)
-    const helper = segments[segments.length - 1]
-    const helperStart = match.index + match[0].lastIndexOf(helper)
-    const helperEnd = helperStart + helper.length
+    const segments = match[1].slice(1).split('.') // drop the leading dot
+    if (!segments.length) continue
 
-    if (offset >= helperStart && offset <= helperEnd) {
-      const helperInfo = typeMap.helpers?.[fullHelperName]
-      if (helperInfo && helperInfo.path) {
-        const uri = `file://${helperInfo.path}`
-        return lsp.LocationLink.create(
-          uri,
-          lsp.Range.create(helperInfo.fnLine - 1, 0, helperInfo.fnLine - 1, 0),
-          lsp.Range.create(helperInfo.fnLine - 1, 0, helperInfo.fnLine - 1, 0),
-          lsp.Range.create(
-            document.positionAt(helperStart),
-            document.positionAt(helperEnd)
-          )
+    // Build your kebab path
+    const fullHelperName = segments.map(toKebab).join('/')
+
+    // Locate the *start* of the helper name itself in the string
+    const lastSeg = segments[segments.length - 1]
+    const helperStart = match.index + match[0].lastIndexOf(lastSeg)
+    const helperEnd = helperStart + lastSeg.length
+
+    // 2) Broaden the cursor check to anywhere inside match[0]:
+    const matchEnd = match.index + match[0].length
+    if (offset < match.index || offset > matchEnd) {
+      continue
+    }
+
+    // Now look up in your typeMap
+    const info = typeMap.helpers?.[fullHelperName]
+    if (info?.path) {
+      const uri = `file://${info.path}`
+      return lsp.LocationLink.create(
+        uri,
+        // targetSelection  = where to go in the helper file
+        lsp.Range.create(info.fnLine - 1, 0, info.fnLine - 1, 0),
+        // originSelection  = same as above, but not critical here
+        lsp.Range.create(info.fnLine - 1, 0, info.fnLine - 1, 0),
+        // this is the range in *this* document that gets underlined as a link
+        lsp.Range.create(
+          document.positionAt(helperStart),
+          document.positionAt(helperEnd)
         )
-      }
+      )
     }
   }
+
   return null
 }
