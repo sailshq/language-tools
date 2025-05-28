@@ -18,6 +18,10 @@ module.exports = function helpersCompletion(document, position, typeMap) {
     start: { line: position.line, character: 0 },
     end: position
   })
+  // Prevent helpers completion inside .with({ ... })
+  if (/\.with\s*\(\s*\{[^}]*$/.test(line)) {
+    return []
+  }
   const helpers = typeMap.helpers || {}
   const context = getHelpersContext(line.trim())
   if (!line.trim().includes('sails.helpers.')) return []
