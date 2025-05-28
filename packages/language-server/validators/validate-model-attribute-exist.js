@@ -1,4 +1,6 @@
 const lsp = require('vscode-languageserver/node')
+const acorn = require('acorn')
+const walk = require('acorn-walk')
 
 /**
  * Validate if a Waterline model attribute exists when used in criteria or chainable methods.
@@ -10,9 +12,88 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
   const diagnostics = []
   const text = document.getText()
 
-  // Criteria methods: Model.find({ attribute: ... }) etc.
+  // Build a lowercased model map for robust case-insensitive lookup
+  const modelMap = {}
+  if (typeMap.models) {
+    for (const key of Object.keys(typeMap.models)) {
+      modelMap[key.toLowerCase()] = typeMap.models[key]
+    }
+  }
+  // Helper function to get model by name, case-insensitive
+  function getModelByName(name) {
+    if (!name) return undefined
+    const upper = name.charAt(0).toUpperCase() + name.slice(1)
+    return typeMap.models[upper]
+  }
+
+  // AST-based: Validate Model.create({ ... }) and similar
+  try {
+    const ast = acorn.parse(text, {
+      ecmaVersion: 'latest',
+      sourceType: 'module'
+    })
+    walk.simple(ast, {
+      CallExpression(node) {
+        if (
+          node.callee &&
+          node.callee.type === 'MemberExpression' &&
+          node.arguments &&
+          node.arguments.length > 0 &&
+          node.arguments[0].type === 'ObjectExpression'
+        ) {
+          const method = node.callee.property.name
+          const modelName = node.callee.object.name
+          // Only check for Waterline methods
+          if (
+            [
+              'create',
+              'createEach',
+              'count',
+              'find',
+              'findOne',
+              'update',
+              'destroy',
+              'where',
+              'findOrCreate',
+              'sum'
+            ].includes(method)
+          ) {
+            const model = getModelByName(modelName)
+            if (!model) return
+            for (const prop of node.arguments[0].properties) {
+              // Support both shorthand and normal properties
+              const attribute = prop.key && (prop.key.name || prop.key.value)
+              if (
+                !model.attributes ||
+                !Object.prototype.hasOwnProperty.call(
+                  model.attributes,
+                  attribute
+                )
+              ) {
+                diagnostics.push(
+                  lsp.Diagnostic.create(
+                    lsp.Range.create(
+                      document.positionAt(prop.key.start),
+                      document.positionAt(prop.key.end)
+                    ),
+                    `'${attribute}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                    lsp.DiagnosticSeverity.Error,
+                    'sails-lsp'
+                  )
+                )
+              }
+            }
+          }
+        }
+      }
+    })
+  } catch (err) {
+    // Fallback to regex if AST parse fails
+  }
+
+  // Criteria methods (regex fallback, only for legacy or parse errors)
   const criteriaRegex =
-    /([A-Za-z0-9_]+)\s*\.\s*(find|findOne|update|destroy|where)\s*\(\s*\{\s*([A-Za-z0-9_]+)\s*:/g
+    /([A-Za-z0-9_]+)\s*\.\s*(create|createEach|count|find|findOne|update|destroy|where|findOrCreate|sum)\s*\(\s*\{\s*([A-Za-z0-9_]+)\s*:/g
 
   // Chainable: .select(['attr1', 'attr2']) or .omit(['attr1', ...])
   const arrayChainRegex = /\.(select|omit)\s*\(\s*\[([^\]]*)\]/g
@@ -29,7 +110,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
     const attrStart = match.index + match[0].lastIndexOf(attribute)
     const attrEnd = attrStart + attribute.length
 
-    const model = typeMap.models && typeMap.models[modelName]
+    const model = getModelByName(modelName)
     if (!model) continue
 
     if (
@@ -62,7 +143,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
     )
     const modelName = modelMatch && modelMatch[1]
     if (!modelName) continue
-    const model = typeMap.models && typeMap.models[modelName]
+    const model = getModelByName(modelName)
     if (!model) continue
 
     // Extract attribute names from the array string
@@ -101,7 +182,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
     )
     const modelName = modelMatch && modelMatch[1]
     if (!modelName) continue
-    const model = typeMap.models && typeMap.models[modelName]
+    const model = getModelByName(modelName)
     if (!model) continue
 
     const attrStart = match.index + match[0].indexOf(attribute)
