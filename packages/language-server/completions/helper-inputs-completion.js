@@ -33,6 +33,14 @@ module.exports = function helperInputsCompletion(document, position, typeMap) {
   const before = text.substring(0, offset)
   const lines = before.split('\n')
   const line = lines[lines.length - 1]
+
+  // Only trigger if not after a colon (:) on this line
+  // e.g. don't trigger if "foo: '" or "foo: \"" or "foo: 1"
+  // Find the last non-whitespace char before the cursor
+  const trimmed = line.slice(0, position.character).replace(/\s+$/, '')
+  // If the last non-whitespace char before the cursor is a colon, do not complete
+  if (/:[^:]*$/.test(trimmed)) return []
+
   const pathParts = getHelperPath(line)
   if (!pathParts) return []
 
