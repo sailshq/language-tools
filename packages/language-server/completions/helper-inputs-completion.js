@@ -36,13 +36,35 @@ module.exports = function helperInputsCompletion(document, position, typeMap) {
 
   // Only trigger if not after a colon (:) on this line
   // e.g. don't trigger if "foo: '" or "foo: \"" or "foo: 1"
-  // Find the last non-whitespace char before the cursor
-  const trimmed = line.slice(0, position.character).replace(/\s+$/, '')
-  // If the last non-whitespace char before the cursor is a colon, do not complete
-  if (/:[^:]*$/.test(trimmed)) return []
+  // But DO trigger after a comma (,) or at the start of a new property
+  // Find the text before the cursor on this line
+  const beforeCursor = line.slice(0, position.character)
+  // If the last non-whitespace character before the cursor is a colon, do not complete
+  // (but allow after comma, or at start of line/object)
+  const lastColon = beforeCursor.lastIndexOf(':')
+  const lastComma = beforeCursor.lastIndexOf(',')
+  // If the last colon is after the last comma, and after any opening brace, suppress completion
+  if (lastColon > lastComma && lastColon > beforeCursor.lastIndexOf('{'))
+    return []
 
   const pathParts = getHelperPath(line)
   if (!pathParts) return []
+
+  // Find already-used property names in the current object literal
+  // We'll look for all foo: ... pairs before the cursor in the current .with({ ... })
+  const objectStart = before.lastIndexOf('{')
+  const objectEnd = before.lastIndexOf('}')
+  let usedProps = new Set()
+  if (objectStart !== -1 && (objectEnd === -1 || objectStart > objectEnd)) {
+    // Get the text inside the current object literal up to the cursor
+    const objectText = before.slice(objectStart, offset)
+    // Match all property names before the cursor
+    const propRegex = /([a-zA-Z0-9_]+)\s*:/g
+    let m
+    while ((m = propRegex.exec(objectText)) !== null) {
+      usedProps.add(m[1])
+    }
+  }
 
   // Convert camelCase to kebab-case for the last part
   function camelToKebab(str) {
@@ -60,5 +82,10 @@ module.exports = function helperInputsCompletion(document, position, typeMap) {
   }
   if (!helper || !helper.inputs || typeof helper.inputs !== 'object') return []
 
-  return getInputCompletionItems(helper.inputs)
+  // Filter out already-used properties
+  const availableInputs = Object.fromEntries(
+    Object.entries(helper.inputs).filter(([key]) => !usedProps.has(key))
+  )
+
+  return getInputCompletionItems(availableInputs)
 }
