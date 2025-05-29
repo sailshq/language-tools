@@ -98,6 +98,7 @@ class SailsParser {
       },
       { name: 'update', description: 'Update records matching criteria.' },
       { name: 'destroy', description: 'Delete records matching criteria.' },
+      { name: 'destroyOne', description: 'Delete a single record.' },
       { name: 'count', description: 'Count records matching criteria.' },
       {
         name: 'replaceCollection',
@@ -115,33 +116,42 @@ class SailsParser {
         name: 'findOrCreate',
         description: 'Find a record or create it if it does not exist.'
       },
+      { name: 'stream', description: 'Stream results as they are found.' },
+      { name: 'sum', description: 'Calculate the sum of a numeric attribute.' },
+      { name: 'archive', description: 'Archive records instead of deleting.' },
+      { name: 'archiveOne', description: 'Archive a single record.' },
       {
-        name: 'findOrCreateEach',
-        description: 'Find or create multiple records in a batch.'
+        name: 'validate',
+        description: 'Validate a record against its schema.'
+      },
+      {
+        name: 'avg',
+        description: 'Calculate the average of a numeric attribute.'
+      },
+      {
+        name: 'getDatastore',
+        description: 'Get the datastore used by this model.'
       }
     ]
 
     const CHAINABLE_METHODS = [
       { name: 'where', description: 'Filter records by criteria.' },
       { name: 'limit', description: 'Limit the number of records returned.' },
-      {
-        name: 'skip',
-        description: 'Skip a number of records (for pagination).'
-      },
-      { name: 'sort', description: 'Sort records by specified attributes.' },
+      { name: 'skip', description: 'Skip a number of records.' },
+      { name: 'sort', description: 'Sort records by attributes.' },
       { name: 'populate', description: 'Populate associated records.' },
+      { name: 'select', description: 'Select specific attributes.' },
+      { name: 'omit', description: 'Omit specific attributes.' },
+      { name: 'meta', description: 'Pass additional options.' },
+      { name: 'decrypt', description: 'Decrypt encrypted attributes.' },
+      { name: 'fetch', description: 'Return affected records.' },
+      { name: 'intercept', description: 'Intercept results with a function.' },
+      { name: 'eachRecord', description: 'Iterate over each record.' },
+      { name: 'toPromise', description: 'Return a promise for the results.' },
+      { name: 'catch', description: 'Handle errors in the query.' },
       {
-        name: 'select',
-        description: 'Select only specific attributes to return.'
-      },
-      {
-        name: 'omit',
-        description: 'Omit specific attributes from the result.'
-      },
-      { name: 'meta', description: 'Pass additional options to the query.' },
-      {
-        name: 'decrypt',
-        description: 'Decrypt encrypted attributes in the result.'
+        name: 'usingConnection',
+        description: 'Use a specific database connection.'
       }
     ]
     const context = this
