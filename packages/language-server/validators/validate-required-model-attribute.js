@@ -43,7 +43,7 @@ module.exports = function validateRequiredModelAttribute(document, typeMap) {
                 document.positionAt(objStart),
                 document.positionAt(objEnd)
               ),
-              `Missing required attribute '${attr}' for model '${modelName}' in .${match[1]}().`,
+              `Missing required attribute '${attr}' in ${modelName}.${match[1]}().`,
               lsp.DiagnosticSeverity.Error,
               'sails-lsp'
             )
