@@ -146,7 +146,13 @@ class SailsParser {
       { name: 'decrypt', description: 'Decrypt encrypted attributes.' },
       { name: 'fetch', description: 'Return affected records.' },
       { name: 'intercept', description: 'Intercept results with a function.' },
-      { name: 'eachRecord', description: 'Iterate over each record.' }
+      { name: 'eachRecord', description: 'Iterate over each record.' },
+      { name: 'toPromise', description: 'Return a promise for the results.' },
+      { name: 'catch', description: 'Handle errors in the query.' },
+      {
+        name: 'usingConnection',
+        description: 'Use a specific database connection.'
+      }
     ]
     const context = this
     if (!(await this.#directoryExists(dir))) return models
