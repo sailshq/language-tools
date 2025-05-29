@@ -120,7 +120,18 @@ class SailsParser {
       { name: 'sum', description: 'Calculate the sum of a numeric attribute.' },
       { name: 'archive', description: 'Archive records instead of deleting.' },
       { name: 'archiveOne', description: 'Archive a single record.' },
-      { name: 'validate', description: 'Validate a record against its schema.' }
+      {
+        name: 'validate',
+        description: 'Validate a record against its schema.'
+      },
+      {
+        name: 'avg',
+        description: 'Calculate the average of a numeric attribute.'
+      },
+      {
+        name: 'getDatastore',
+        description: 'Get the datastore used by this model.'
+      }
     ]
 
     const CHAINABLE_METHODS = [
@@ -135,15 +146,7 @@ class SailsParser {
       { name: 'decrypt', description: 'Decrypt encrypted attributes.' },
       { name: 'fetch', description: 'Return affected records.' },
       { name: 'intercept', description: 'Intercept results with a function.' },
-      { name: 'eachRecord', description: 'Iterate over each record.' },
-      {
-        name: 'avg',
-        description: 'Calculate the average of a numeric attribute.'
-      },
-      {
-        name: 'getDatastore',
-        description: 'Get the datastore used by this model.'
-      }
+      { name: 'eachRecord', description: 'Iterate over each record.' }
     ]
     const context = this
     if (!(await this.#directoryExists(dir))) return models
