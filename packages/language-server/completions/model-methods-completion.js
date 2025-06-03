@@ -55,7 +55,7 @@ module.exports = function modelMethodsCompletion(document, position, typeMap) {
         chainableCallMatch &&
         (method.name === 'select' || method.name === 'omit')
       ) {
-        insertText = method.name + "(['$0'])"
+        insertText = method.name + '([$0])'
       }
       return {
         label: method.name,
