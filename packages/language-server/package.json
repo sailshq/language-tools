@@ -27,5 +27,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@sailshq/language-server": "^0.2.1"
   }
 }
