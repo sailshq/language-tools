@@ -56,6 +56,12 @@ module.exports = function modelAttributesCompletion(
     /([A-Za-z_$][\w$]*)\s*\.where\s*\(\s*\{[^}]*([a-zA-Z0-9_]*)?$/
   )
 
+  // --- PATCH: Support chained .where({ ... }) completions ---
+  // Try to infer model name from chained calls like User.find().where({ ... })
+  const chainedWhereMatch = before.match(
+    /([A-Za-z_$][\w$]*)\s*\.[\w$]+\s*\(.*?\)\s*\.where\s*\(\s*\{[^}]*([a-zA-Z0-9_]*)?$/
+  )
+
   // Only suppress completions after a colon (:) in object literals for static methods,
   // but always allow completions in .select(['']), .omit(['']), .sort(['']), .where({}), etc.
   const inChainableString =
@@ -131,6 +137,9 @@ module.exports = function modelAttributesCompletion(
   } else if (whereMethodCallMatch) {
     modelName = whereMethodCallMatch[1]
     prefix = whereMethodCallMatch[2] || ''
+  } else if (chainedWhereMatch) {
+    modelName = chainedWhereMatch[1]
+    prefix = chainedWhereMatch[2] || ''
   } else if (chainableDirectCallMatch) {
     modelName = inferModelName(before)
     prefix = chainableDirectCallMatch[2] || ''
