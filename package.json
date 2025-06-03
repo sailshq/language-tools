@@ -21,9 +21,5 @@
   },
   "lint-staged": {
     "**/*": "prettier --write --ignore-unknown"
-  },
-  "dependencies": {
-    "acorn": "^8.14.1",
-    "acorn-walk": "^8.3.4"
   }
 }
