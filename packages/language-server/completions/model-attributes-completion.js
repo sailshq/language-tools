@@ -18,18 +18,12 @@ module.exports = function modelAttributesCompletion(
   const criteriaMatch = before.match(
     /(?:sails\.models\.([A-Za-z_$][\w$]*)|([A-Za-z_$][\w$]*))\s*\.\w+\s*\(\s*\{[^}]*([a-zA-Z0-9_]*)?$/
   )
-  const selectStringMatch = before.match(
-    /(?:select|omit|sort)\s*:\s*['"]([a-zA-Z0-9_]*)?$/
-  )
-  const selectArrayMatch = before.match(
+  const sortStringMatch = before.match(/sort\s*:\s*['"]([a-zA-Z0-9_]*)?$/)
+  const criteriaOptionsArrayMatch = before.match(
     /(?:select|omit|sort)\s*:\s*\[\s*['"]([a-zA-Z0-9_]*)?$/
   )
-  const populateStringMatch = before.match(
-    /populate\s*:\s*['"]([a-zA-Z0-9_]*)?$/
-  )
-  const sortStringMatch = before.match(/sort\s*:\s*['"]([a-zA-Z0-9_]*)?$/)
-  const sortArrayStringMatch = before.match(
-    /sort\s*:\s*\[\s*[^\{\]]*['"]([a-zA-Z0-9_]*)?$/
+  const popuplateMethodMatch = before.match(
+    /\.populate\s*\(\s*['"]([a-zA-Z0-9_]*)?$/
   )
   const sortArrayObjectMatch = before.match(
     /sort\s*:\s*\[\s*\{\s*([a-zA-Z0-9_]*)?$/
@@ -44,7 +38,7 @@ module.exports = function modelAttributesCompletion(
   // Detect if we are inside a .select([]), .omit([]), .sort([]), etc. as a method call (e.g. User.find().select([]))
   // This matches e.g. .select(['foo', '']) or .omit(["bar", '']) or .select('foo')
   const chainableDirectCallMatch = before.match(
-    /\.(select|omit|sort|populate|where)\s*\(\s*\[?\s*['"]?([a-zA-Z0-9_]*)?$/
+    /\.(select|omit|sort|populate|where)\s*\(\s*\[.*(?:,|\[)?\s*['"`]([a-zA-Z0-9_]*)?$/
   )
 
   // Also allow completions in .where({ ... }) chainable method call context
@@ -56,7 +50,7 @@ module.exports = function modelAttributesCompletion(
     /([A-Za-z_$][\w$]*)\s*\.where\s*\(\s*\{[^}]*([a-zA-Z0-9_]*)?$/
   )
 
-  // --- PATCH: Support chained .where({ ... }) completions ---
+  // Support chained .where({ ... }) completions ---
   // Try to infer model name from chained calls like User.find().where({ ... })
   const chainedWhereMatch = before.match(
     /([A-Za-z_$][\w$]*)\s*\.[\w$]+\s*\(.*?\)\s*\.where\s*\(\s*\{[^}]*([a-zA-Z0-9_]*)?$/
@@ -65,18 +59,16 @@ module.exports = function modelAttributesCompletion(
   // Only suppress completions after a colon (:) in object literals for static methods,
   // but always allow completions in .select(['']), .omit(['']), .sort(['']), .where({}), etc.
   const inChainableString =
-    selectStringMatch ||
-    selectArrayMatch ||
+    criteriaOptionsArrayMatch ||
     sortStringMatch ||
-    sortArrayStringMatch ||
     sortArrayObjectMatch ||
-    populateStringMatch ||
+    popuplateMethodMatch ||
     isInChainableMethodCall ||
     isInWhereMethodCall ||
     !!chainableDirectCallMatch
 
   // Suppress completions after a colon only if NOT in a chainable string/array context
-  // PATCH: Also suppress completions after colon in .where({ ... }) context, unless after a comma or at start
+  // Also suppress completions after colon in .where({ ... }) context, unless after a comma or at start
   if (!inChainableString || isInWhereMethodCall || chainedWhereMatch) {
     const lines = before.split('\n')
     const line = lines[lines.length - 1]
@@ -121,20 +113,29 @@ module.exports = function modelAttributesCompletion(
     return last[1] || last[2] || null
   }
 
+  // Determine the current Sails.js model context and attribute prefix for completions
+  // by matching the code before the cursor against various Sails.js query patterns.
+  // This enables context-aware attribute completions for all supported query forms.
   if (criteriaMatch) {
     modelName = criteriaMatch[1] || criteriaMatch[2]
     prefix = criteriaMatch[3] || ''
-  } else if (selectStringMatch || selectArrayMatch) {
+  } else if (criteriaOptionsArrayMatch) {
     modelName = inferModelName(before)
-    prefix = (selectStringMatch || selectArrayMatch)[1] || ''
-  } else if (populateStringMatch) {
+    prefix = criteriaOptionsArrayMatch[1] || ''
+  } else if (popuplateMethodMatch) {
     isPopulate = true
     modelName = inferModelName(before)
-    prefix = populateStringMatch[1] || ''
-  } else if (sortStringMatch || sortArrayStringMatch || sortArrayObjectMatch) {
+    prefix = popuplateMethodMatch[1] || ''
+  } else if (
+    sortStringMatch ||
+    criteriaOptionsArrayMatch ||
+    sortArrayObjectMatch
+  ) {
     modelName = inferModelName(before)
     prefix =
-      (sortStringMatch || sortArrayStringMatch || sortArrayObjectMatch)[1] || ''
+      (sortStringMatch ||
+        criteriaOptionsArrayMatch ||
+        sortArrayObjectMatch)[1] || ''
   } else if (whereMethodCallMatch) {
     modelName = whereMethodCallMatch[1]
     prefix = whereMethodCallMatch[2] || ''
@@ -176,6 +177,60 @@ module.exports = function modelAttributesCompletion(
     }
   }
 
+  // Remove already-used attributes for both object and array/chainable forms
+  // Collect all used attributes from any select/omit/sort array in object or chainable form up to the cursor
+  const allArrayRegex =
+    /(select|omit|sort)\s*:\s*\[([^\]]*)\]|\.(select|omit|sort)\s*\(\s*\[([^\]]*)/g
+  let match
+  while ((match = allArrayRegex.exec(before)) !== null) {
+    const arrayContent = match[2] || match[4] || ''
+    const usedInArray = Array.from(
+      arrayContent.matchAll(/['"`]\s*([a-zA-Z0-9_]+)\s*['"`]/g)
+    ).map((m) => m[1])
+    usedInArray.forEach((attr) => usedProps.add(attr))
+  }
+
+  // Improved: Only trigger completions in object form select/omit/sort arrays when inside a string (after opening quote)
+  if (criteriaOptionsArrayMatch) {
+    // Find the last '[' before the cursor
+    const arrayStart = before.lastIndexOf('[')
+    if (arrayStart !== -1) {
+      const arrayContent = before.slice(arrayStart, offset)
+      // Only trigger if the last non-whitespace character is a quote (i.e., user is typing a string)
+      const lastQuote = arrayContent.match(/['"`]([^'"`]*)$/)
+      if (!lastQuote) {
+        // Not inside a string, suppress completions
+        return []
+      }
+    }
+  }
+
+  if (criteriaOptionsArrayMatch) {
+    // For object form: find the select/omit/sort array in the object literal up to the cursor
+    // Try to extract the array content for select: ['foo', 'bar', ...]
+    // Find the last occurrence of select: [ or omit: [ or sort: [ before the cursor
+    const arrayStart = before.lastIndexOf('[')
+    if (arrayStart !== -1) {
+      const arrayContent = before.slice(arrayStart, offset)
+      // Match all quoted strings in the array up to the cursor
+      const usedInArray = Array.from(
+        arrayContent.matchAll(/['"`]\s*([a-zA-Z0-9_]+)\s*['"`]/g)
+      ).map((m) => m[1])
+      usedInArray.forEach((attr) => usedProps.add(attr))
+    }
+  }
+  if (chainableDirectCallMatch) {
+    // For array/chainable forms, parse the array up to the cursor and collect used attributes
+    const arrayMatch = before.match(/\[([^\]]*)$/)
+    if (arrayMatch) {
+      const arrayContent = arrayMatch[1]
+      const usedInArray = Array.from(
+        arrayContent.matchAll(/['"`]\s*([a-zA-Z0-9_]+)\s*['"`]/g)
+      ).map((m) => m[1])
+      usedInArray.forEach((attr) => usedProps.add(attr))
+    }
+  }
+
   if (isPopulate) {
     attributes = Object.entries(model.attributes || {})
       .filter(([, def]) => def && (def.model || def.collection))
@@ -184,22 +239,25 @@ module.exports = function modelAttributesCompletion(
     attributes = Object.keys(model.attributes || {})
   }
 
-  return attributes
-    .filter((attr) => attr.startsWith(prefix))
-    .filter((attr) => !usedProps.has(attr))
-    .map((attr) => {
-      const attrDef = model.attributes && model.attributes[attr]
-      let type = attrDef && attrDef.type ? attrDef.type : ''
-      let required = attrDef && attrDef.required ? 'required' : 'optional'
-      let detail = type ? `${type} (${required})` : required
-      return {
-        label: attr,
-        kind: lsp.CompletionItemKind.Field,
-        detail,
-        documentation: `${modelName}.${attr}`,
-        sortText: attr,
-        filterText: attr,
-        insertText: attr
-      }
-    })
+  return Array.from(
+    new Set(
+      attributes
+        .filter((attr) => attr.toLowerCase().startsWith(prefix.toLowerCase()))
+        .filter((attr) => !usedProps.has(attr))
+    )
+  ).map((attr) => {
+    const attrDef = model.attributes && model.attributes[attr]
+    let type = attrDef && attrDef.type ? attrDef.type : ''
+    let required = attrDef && attrDef.required ? 'required' : 'optional'
+    let detail = type ? `${type} (${required})` : required
+    return {
+      label: attr,
+      kind: lsp.CompletionItemKind.Field,
+      detail,
+      documentation: `${modelName}.${attr}`,
+      sortText: attr,
+      filterText: attr,
+      insertText: attr
+    }
+  })
 }
