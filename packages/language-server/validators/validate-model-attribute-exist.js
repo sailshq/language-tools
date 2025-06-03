@@ -57,8 +57,25 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
               'sum'
             ].includes(method)
           ) {
-            const model = getModelByName(modelName)
+            // --- PATCH: Robust model name extraction for .where({}) and all chainable methods ---
+            // Always walk up the chain for all methods, not just 'where'
+            let effectiveModelName = modelName
+            if (!effectiveModelName) {
+              let obj = node.callee.object
+              while (
+                obj &&
+                obj.type === 'CallExpression' &&
+                obj.callee &&
+                obj.callee.type === 'MemberExpression'
+              ) {
+                obj = obj.callee.object
+              }
+              if (obj && obj.type === 'Identifier')
+                effectiveModelName = obj.name
+            }
+            const model = getModelByName(effectiveModelName)
             if (!model) return
+            // --- PATCH END ---
             // --- FIX: handle createEach array of objects ---
             if (
               method === 'createEach' &&
@@ -82,7 +99,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                           document.positionAt(prop.key.start),
                           document.positionAt(prop.key.end)
                         ),
-                        `'${attribute}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                        `'${attribute}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
                         lsp.DiagnosticSeverity.Error,
                         'sails-lsp'
                       )
@@ -114,7 +131,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                         document.positionAt(prop.key.start),
                         document.positionAt(prop.key.end)
                       ),
-                      `'${whereAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                      `'${whereAttr}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
                       lsp.DiagnosticSeverity.Error,
                       'sails-lsp'
                     )
@@ -164,7 +181,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                           document.positionAt(prop.key.start),
                           document.positionAt(prop.key.end)
                         ),
-                        `'${attribute}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                        `'${attribute}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
                         lsp.DiagnosticSeverity.Error,
                         'sails-lsp'
                       )
@@ -199,7 +216,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                               document.positionAt(whereProp.key.start),
                               document.positionAt(whereProp.key.end)
                             ),
-                            `'${whereAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                            `'${whereAttr}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
                             lsp.DiagnosticSeverity.Error,
                             'sails-lsp'
                           )
@@ -233,7 +250,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                                 document.positionAt(el.start),
                                 document.positionAt(el.end)
                               ),
-                              `'${arrAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                              `'${arrAttr}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
                               lsp.DiagnosticSeverity.Error,
                               'sails-lsp'
                             )
@@ -264,7 +281,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                               document.positionAt(prop.value.start),
                               document.positionAt(prop.value.end)
                             ),
-                            `'${sortAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                            `'${sortAttr}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
                             lsp.DiagnosticSeverity.Error,
                             'sails-lsp'
                           )
@@ -292,7 +309,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                                     document.positionAt(sortProp.key.start),
                                     document.positionAt(sortProp.key.end)
                                   ),
-                                  `'${sortAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                                  `'${sortAttr}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
                                   lsp.DiagnosticSeverity.Error,
                                   'sails-lsp'
                                 )
@@ -319,7 +336,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                                   document.positionAt(el.start),
                                   document.positionAt(el.end)
                                 ),
-                                `'${sortAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                                `'${sortAttr}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
                                 lsp.DiagnosticSeverity.Error,
                                 'sails-lsp'
                               )
@@ -345,7 +362,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                                 document.positionAt(sortProp.key.start),
                                 document.positionAt(sortProp.key.end)
                               ),
-                              `'${sortAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                              `'${sortAttr}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
                               lsp.DiagnosticSeverity.Error,
                               'sails-lsp'
                             )
@@ -374,7 +391,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                         document.positionAt(prop.key.start),
                         document.positionAt(prop.key.end)
                       ),
-                      `'${attribute}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                      `'${attribute}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
                       lsp.DiagnosticSeverity.Error,
                       'sails-lsp'
                     )
