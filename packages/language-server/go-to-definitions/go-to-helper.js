@@ -8,28 +8,27 @@ module.exports = async function goToHelper(document, position, typeMap) {
   const text = document.getText()
   const offset = document.offsetAt(position)
 
-  // 1) Capture the helper chain AND optionally .with, .with(), or .with({ ... })
-  //    match[1] = ".foo.bar"  (your segments)
-  //    match[0] = entire "sails.helpers.foo.bar", "sails.helpers.foo.bar.with", "sails.helpers.foo.bar.with()", or "sails.helpers.foo.bar.with({ ... })"
-  const regex =
-    /\bsails\.helpers((?:\.[A-Za-z0-9_]+)+)(?:\.with\s*\((?:[^)]*)\))?/g
+  // Regex to match sails.helpers.foo.bar (even if chained, e.g. .with, .with(), .with({}), etc.)
+  // This is similar to go-to-model: match the helper path, then allow any chain after
+  const regex = /\bsails\.helpers((?:\.[A-Za-z0-9_]+)+)/g
 
   let match
   while ((match = regex.exec(text)) !== null) {
     const segments = match[1].slice(1).split('.') // drop the leading dot
     if (!segments.length) continue
 
-    // Build your kebab path
-    const fullHelperName = segments.map(toKebab).join('/')
-
-    // Locate the *start* of the helper name itself in the string
-    const lastSeg = segments[segments.length - 1]
+    // Only use the last segment before .with as the helper name
+    let cleanSegments = segments
+    if (segments[segments.length - 1] === 'with') {
+      cleanSegments = segments.slice(0, -1)
+    }
+    const fullHelperName = cleanSegments.map(toKebab).join('/')
+    const lastSeg = cleanSegments[cleanSegments.length - 1]
     const helperStart = match.index + match[0].lastIndexOf(lastSeg)
     const helperEnd = helperStart + lastSeg.length
 
-    // 2) Broaden the cursor check to anywhere inside match[0]:
-    const matchEnd = match.index + match[0].length
-    if (offset < match.index || offset > matchEnd) {
+    // Allow go-to if the cursor is anywhere inside the helper name
+    if (offset < helperStart || offset > helperEnd) {
       continue
     }
 
@@ -39,11 +38,8 @@ module.exports = async function goToHelper(document, position, typeMap) {
       const uri = `file://${info.path}`
       return lsp.LocationLink.create(
         uri,
-        // targetSelection  = where to go in the helper file
         lsp.Range.create(info.fnLine - 1, 0, info.fnLine - 1, 0),
-        // originSelection  = same as above, but not critical here
         lsp.Range.create(info.fnLine - 1, 0, info.fnLine - 1, 0),
-        // this is the range in *this* document that gets underlined as a link
         lsp.Range.create(
           document.positionAt(helperStart),
           document.positionAt(helperEnd)

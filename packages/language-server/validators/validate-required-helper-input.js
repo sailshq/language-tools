@@ -37,7 +37,7 @@ module.exports = function validateRequiredHelperInput(document, typeMap) {
               document.positionAt(objStart),
               document.positionAt(objEnd)
             ),
-            `Missing required input property '${inputKey}' for helper '${fullHelperName}'.`,
+            `Missing required input '${inputKey}' for helper '${fullHelperName}'.`,
             lsp.DiagnosticSeverity.Error,
             'sails-lsp'
           )
