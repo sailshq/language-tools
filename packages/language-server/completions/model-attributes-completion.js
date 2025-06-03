@@ -41,6 +41,12 @@ module.exports = function modelAttributesCompletion(
     /\.(select|omit|sort)\s*\(\s*([\[\{]?[^\)]*)$/
   const isInChainableMethodCall = chainableMethodCallRegex.test(before)
 
+  // Detect if we are inside a .select([]), .omit([]), .sort([]), etc. as a method call (e.g. User.find().select([]))
+  // This matches e.g. .select(['foo', '']) or .omit(["bar", '']) or .select('foo')
+  const chainableDirectCallMatch = before.match(
+    /\.(select|omit|sort|populate|where)\s*\(\s*\[?\s*['"]?([a-zA-Z0-9_]*)?$/
+  )
+
   // Also allow completions in .where({ ... }) chainable method call context
   const whereMethodCallRegex = /\.where\s*\(\s*\{[^\)]*$/
   const isInWhereMethodCall = whereMethodCallRegex.test(before)
@@ -60,7 +66,8 @@ module.exports = function modelAttributesCompletion(
     sortArrayObjectMatch ||
     populateStringMatch ||
     isInChainableMethodCall ||
-    isInWhereMethodCall
+    isInWhereMethodCall ||
+    !!chainableDirectCallMatch
 
   // Suppress completions after a colon only if NOT in a chainable string/array context
   if (!inChainableString) {
@@ -124,6 +131,9 @@ module.exports = function modelAttributesCompletion(
   } else if (whereMethodCallMatch) {
     modelName = whereMethodCallMatch[1]
     prefix = whereMethodCallMatch[2] || ''
+  } else if (chainableDirectCallMatch) {
+    modelName = inferModelName(before)
+    prefix = chainableDirectCallMatch[2] || ''
   } else {
     return []
   }

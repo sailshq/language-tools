@@ -61,14 +61,217 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
             const model = getModelByName(modelName)
             if (!model) return
             for (const prop of node.arguments[0].properties) {
-              // Support both shorthand and normal properties
               const attribute = prop.key && (prop.key.name || prop.key.value)
+              const queryOptionKeys = [
+                'where',
+                'select',
+                'omit',
+                'sort',
+                'limit',
+                'skip',
+                'page',
+                'populate',
+                'groupBy',
+                'having',
+                'sum',
+                'average',
+                'min',
+                'max',
+                'distinct',
+                'meta'
+              ]
+              // --- FINAL FIX: treat 'where' exactly like 'sort', 'select', 'omit' for non-create methods ---
               if (
-                !model.attributes ||
-                !Object.prototype.hasOwnProperty.call(
-                  model.attributes,
-                  attribute
-                )
+                method !== 'create' &&
+                method !== 'createEach' &&
+                queryOptionKeys.includes(attribute)
+              ) {
+                if (
+                  attribute === 'where' &&
+                  prop.value &&
+                  prop.value.type === 'ObjectExpression'
+                ) {
+                  for (const whereProp of prop.value.properties) {
+                    if (!whereProp.key) continue
+                    const whereAttr = whereProp.key.name || whereProp.key.value
+                    if (
+                      !model.attributes ||
+                      !Object.prototype.hasOwnProperty.call(
+                        model.attributes,
+                        whereAttr
+                      )
+                    ) {
+                      diagnostics.push(
+                        lsp.Diagnostic.create(
+                          lsp.Range.create(
+                            document.positionAt(whereProp.key.start),
+                            document.positionAt(whereProp.key.end)
+                          ),
+                          `'${whereAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                          lsp.DiagnosticSeverity.Error,
+                          'sails-lsp'
+                        )
+                      )
+                    }
+                  }
+                  continue
+                }
+                if (
+                  (attribute === 'select' || attribute === 'omit') &&
+                  prop.value &&
+                  prop.value.type === 'ArrayExpression'
+                ) {
+                  for (const el of prop.value.elements) {
+                    if (!el) continue
+                    if (el.type === 'Literal' || el.type === 'StringLiteral') {
+                      const arrAttr = el.value
+                      if (
+                        !model.attributes ||
+                        !Object.prototype.hasOwnProperty.call(
+                          model.attributes,
+                          arrAttr
+                        )
+                      ) {
+                        diagnostics.push(
+                          lsp.Diagnostic.create(
+                            lsp.Range.create(
+                              document.positionAt(el.start),
+                              document.positionAt(el.end)
+                            ),
+                            `'${arrAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                            lsp.DiagnosticSeverity.Error,
+                            'sails-lsp'
+                          )
+                        )
+                      }
+                    }
+                  }
+                  continue
+                }
+                if (attribute === 'sort' && prop.value) {
+                  if (
+                    prop.value.type === 'Literal' ||
+                    prop.value.type === 'StringLiteral'
+                  ) {
+                    const sortStr = prop.value.value
+                    const sortAttr = sortStr && sortStr.split(' ')[0]
+                    if (
+                      sortAttr &&
+                      (!model.attributes ||
+                        !Object.prototype.hasOwnProperty.call(
+                          model.attributes,
+                          sortAttr
+                        ))
+                    ) {
+                      diagnostics.push(
+                        lsp.Diagnostic.create(
+                          lsp.Range.create(
+                            document.positionAt(prop.value.start),
+                            document.positionAt(prop.value.end)
+                          ),
+                          `'${sortAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                          lsp.DiagnosticSeverity.Error,
+                          'sails-lsp'
+                        )
+                      )
+                    }
+                    continue
+                  } else if (prop.value.type === 'ArrayExpression') {
+                    for (const el of prop.value.elements) {
+                      if (!el) continue
+                      if (el.type === 'ObjectExpression') {
+                        for (const sortProp of el.properties) {
+                          if (!sortProp.key) continue
+                          const sortAttr =
+                            sortProp.key.name || sortProp.key.value
+                          if (
+                            !model.attributes ||
+                            !Object.prototype.hasOwnProperty.call(
+                              model.attributes,
+                              sortAttr
+                            )
+                          ) {
+                            diagnostics.push(
+                              lsp.Diagnostic.create(
+                                lsp.Range.create(
+                                  document.positionAt(sortProp.key.start),
+                                  document.positionAt(sortProp.key.end)
+                                ),
+                                `'${sortAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                                lsp.DiagnosticSeverity.Error,
+                                'sails-lsp'
+                              )
+                            )
+                          }
+                        }
+                      } else if (
+                        el.type === 'Literal' ||
+                        el.type === 'StringLiteral'
+                      ) {
+                        const sortStr = el.value
+                        const sortAttr = sortStr && sortStr.split(' ')[0]
+                        if (
+                          sortAttr &&
+                          (!model.attributes ||
+                            !Object.prototype.hasOwnProperty.call(
+                              model.attributes,
+                              sortAttr
+                            ))
+                        ) {
+                          diagnostics.push(
+                            lsp.Diagnostic.create(
+                              lsp.Range.create(
+                                document.positionAt(el.start),
+                                document.positionAt(el.end)
+                              ),
+                              `'${sortAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                              lsp.DiagnosticSeverity.Error,
+                              'sails-lsp'
+                            )
+                          )
+                        }
+                      }
+                    }
+                    continue
+                  } else if (prop.value.type === 'ObjectExpression') {
+                    for (const sortProp of prop.value.properties) {
+                      if (!sortProp.key) continue
+                      const sortAttr = sortProp.key.name || sortProp.key.value
+                      if (
+                        !model.attributes ||
+                        !Object.prototype.hasOwnProperty.call(
+                          model.attributes,
+                          sortAttr
+                        )
+                      ) {
+                        diagnostics.push(
+                          lsp.Diagnostic.create(
+                            lsp.Range.create(
+                              document.positionAt(sortProp.key.start),
+                              document.positionAt(sortProp.key.end)
+                            ),
+                            `'${sortAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                            lsp.DiagnosticSeverity.Error,
+                            'sails-lsp'
+                          )
+                        )
+                      }
+                    }
+                    continue
+                  }
+                }
+                // For all other query option keys, skip validation
+                continue
+              }
+              // --- END ROBUST FIX ---
+              // Only validate top-level for create/createEach
+              if (
+                (method === 'create' || method === 'createEach') &&
+                (!model.attributes ||
+                  !Object.prototype.hasOwnProperty.call(
+                    model.attributes,
+                    attribute
+                  ))
               ) {
                 diagnostics.push(
                   lsp.Diagnostic.create(
@@ -88,122 +291,7 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
       }
     })
   } catch (err) {
-    // Fallback to regex if AST parse fails
+    // No regex fallback: rely solely on AST-based validation for accuracy
   }
-
-  // Criteria methods (regex fallback, only for legacy or parse errors)
-  const criteriaRegex =
-    /([A-Za-z0-9_]+)\s*\.\s*(create|createEach|count|find|findOne|update|destroy|where|findOrCreate|sum)\s*\(\s*\{\s*([A-Za-z0-9_]+)\s*:/g
-
-  // Chainable: .select(['attr1', 'attr2']) or .omit(['attr1', ...])
-  const arrayChainRegex = /\.(select|omit)\s*\(\s*\[([^\]]*)\]/g
-
-  // Chainable: .populate('attr')
-  const populateRegex = /\.populate\s*\(\s*['"]([A-Za-z0-9_]+)['"]\s*\)/g
-
-  let match
-
-  // Criteria methods
-  while ((match = criteriaRegex.exec(text)) !== null) {
-    const modelName = match[1]
-    const attribute = match[3]
-    const attrStart = match.index + match[0].lastIndexOf(attribute)
-    const attrEnd = attrStart + attribute.length
-
-    const model = getModelByName(modelName)
-    if (!model) continue
-
-    if (
-      !model.attributes ||
-      !Object.prototype.hasOwnProperty.call(model.attributes, attribute)
-    ) {
-      diagnostics.push(
-        lsp.Diagnostic.create(
-          lsp.Range.create(
-            document.positionAt(attrStart),
-            document.positionAt(attrEnd)
-          ),
-          `'${attribute}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
-          lsp.DiagnosticSeverity.Error,
-          'sails-lsp'
-        )
-      )
-    }
-  }
-
-  // .select(['attr1', ...]) and .omit(['attr1', ...])
-  while ((match = arrayChainRegex.exec(text)) !== null) {
-    const method = match[1]
-    const attrsString = match[2]
-    // Try to find the model name by searching backwards for ModelName.
-    // This is a heuristic and may not be perfect.
-    const before = text.slice(0, match.index)
-    const modelMatch = /([A-Za-z0-9_]+)\s*\.\s*$/.exec(
-      before.split('\n').pop() || ''
-    )
-    const modelName = modelMatch && modelMatch[1]
-    if (!modelName) continue
-    const model = getModelByName(modelName)
-    if (!model) continue
-
-    // Extract attribute names from the array string
-    const attrRegex = /['"]([A-Za-z0-9_]+)['"]/g
-    let attrMatch
-    while ((attrMatch = attrRegex.exec(attrsString)) !== null) {
-      const attribute = attrMatch[1]
-      const attrStart = match.index + match[0].indexOf(attribute)
-      const attrEnd = attrStart + attribute.length
-      if (
-        !model.attributes ||
-        !Object.prototype.hasOwnProperty.call(model.attributes, attribute)
-      ) {
-        diagnostics.push(
-          lsp.Diagnostic.create(
-            lsp.Range.create(
-              document.positionAt(attrStart),
-              document.positionAt(attrEnd)
-            ),
-            `'${attribute}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
-            lsp.DiagnosticSeverity.Error,
-            'sails-lsp'
-          )
-        )
-      }
-    }
-  }
-
-  // .populate('attr')
-  while ((match = populateRegex.exec(text)) !== null) {
-    const attribute = match[1]
-    // Try to find the model name by searching backwards for ModelName.
-    const before = text.slice(0, match.index)
-    const modelMatch = /([A-Za-z0-9_]+)\s*\.\s*$/.exec(
-      before.split('\n').pop() || ''
-    )
-    const modelName = modelMatch && modelMatch[1]
-    if (!modelName) continue
-    const model = getModelByName(modelName)
-    if (!model) continue
-
-    const attrStart = match.index + match[0].indexOf(attribute)
-    const attrEnd = attrStart + attribute.length
-    if (
-      !model.attributes ||
-      !Object.prototype.hasOwnProperty.call(model.attributes, attribute)
-    ) {
-      diagnostics.push(
-        lsp.Diagnostic.create(
-          lsp.Range.create(
-            document.positionAt(attrStart),
-            document.positionAt(attrEnd)
-          ),
-          `'${attribute}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
-          lsp.DiagnosticSeverity.Error,
-          'sails-lsp'
-        )
-      )
-    }
-  }
-
   return diagnostics
 }
