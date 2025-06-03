@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@rsdoctor/rspack-plugin": "^0.4.1",
-    "@sailshq/language-server": "^0.1.0",
+    "@sailshq/language-server": "^0.2.0",
     "@types/node": "^22.5.2",
     "@types/vscode": "^1.82.0",
     "@vscode/vsce": "^3.0.0"
