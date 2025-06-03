@@ -76,7 +76,8 @@ module.exports = function modelAttributesCompletion(
     !!chainableDirectCallMatch
 
   // Suppress completions after a colon only if NOT in a chainable string/array context
-  if (!inChainableString) {
+  // PATCH: Also suppress completions after colon in .where({ ... }) context, unless after a comma or at start
+  if (!inChainableString || isInWhereMethodCall || chainedWhereMatch) {
     const lines = before.split('\n')
     const line = lines[lines.length - 1]
     const beforeCursor = line.slice(0, position.character)
