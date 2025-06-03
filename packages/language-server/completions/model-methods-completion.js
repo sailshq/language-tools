@@ -48,14 +48,24 @@ module.exports = function modelMethodsCompletion(document, position, typeMap) {
 
   return methods
     .filter((method) => method.name.startsWith(prefix))
-    .map((method) => ({
-      label: method.name,
-      kind: lsp.CompletionItemKind.Method,
-      detail: method.description,
-      documentation: `${modelName}.${method.name}()`,
-      sortText: method.name,
-      filterText: method.name,
-      insertText: method.name + '($0)',
-      insertTextFormat: lsp.InsertTextFormat.Snippet
-    }))
+    .map((method) => {
+      let insertText = method.name + '($0)'
+      // For chainable .select or .omit, insert ([''])
+      if (
+        chainableCallMatch &&
+        (method.name === 'select' || method.name === 'omit')
+      ) {
+        insertText = method.name + "(['$0'])"
+      }
+      return {
+        label: method.name,
+        kind: lsp.CompletionItemKind.Method,
+        detail: method.description,
+        documentation: `${modelName}.${method.name}()`,
+        sortText: method.name,
+        filterText: method.name,
+        insertText,
+        insertTextFormat: lsp.InsertTextFormat.Snippet
+      }
+    })
 }
