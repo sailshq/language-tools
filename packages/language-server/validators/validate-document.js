@@ -8,6 +8,8 @@ const validateViewExist = require('./validate-view-exist')
 const validateHelperInputExist = require('./validate-helper-input-exist')
 const validateRequiredHelperInput = require('./validate-required-helper-input')
 const validateRequiredModelAttribute = require('./validate-required-model-attribute')
+const validateModelExist = require('./validate-model-exist')
+
 module.exports = function validateDocument(connection, document, typeMap) {
   const diagnostics = []
 
@@ -30,6 +32,7 @@ module.exports = function validateDocument(connection, document, typeMap) {
     document,
     typeMap
   )
+  const modelExistDiagnostics = validateModelExist(document, typeMap)
   diagnostics.push(
     ...modelDiagnostics,
     ...actionDiagnostics,
@@ -40,7 +43,8 @@ module.exports = function validateDocument(connection, document, typeMap) {
     ...viewDiagnostics,
     ...helperInputDiagnostics,
     ...requiredHelperInputDiagnostics,
-    ...requiredModelAttributeDiagnostics
+    ...requiredModelAttributeDiagnostics,
+    ...modelExistDiagnostics
   )
 
   connection.sendDiagnostics({ uri: document.uri, diagnostics })
