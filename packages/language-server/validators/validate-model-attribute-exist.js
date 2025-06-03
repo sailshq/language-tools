@@ -93,6 +93,37 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
               return
             }
             // --- END FIX ---
+            // --- PATCH: Validate attributes in chained .where({ ... }) calls ---
+            if (
+              method === 'where' &&
+              node.arguments[0].type === 'ObjectExpression'
+            ) {
+              for (const prop of node.arguments[0].properties) {
+                if (!prop.key) continue
+                const whereAttr = prop.key.name || prop.key.value
+                if (
+                  !model.attributes ||
+                  !Object.prototype.hasOwnProperty.call(
+                    model.attributes,
+                    whereAttr
+                  )
+                ) {
+                  diagnostics.push(
+                    lsp.Diagnostic.create(
+                      lsp.Range.create(
+                        document.positionAt(prop.key.start),
+                        document.positionAt(prop.key.end)
+                      ),
+                      `'${whereAttr}' is not a valid attribute of model '${modelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+                      lsp.DiagnosticSeverity.Error,
+                      'sails-lsp'
+                    )
+                  )
+                }
+              }
+              return
+            }
+            // --- END PATCH ---
             if (node.arguments[0].type === 'ObjectExpression') {
               for (const prop of node.arguments[0].properties) {
                 const attribute = prop.key && (prop.key.name || prop.key.value)
