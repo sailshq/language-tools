@@ -15,14 +15,15 @@ module.exports = function dataTypesCompletion(document, position, typeMap) {
   const offset = document.offsetAt(position)
   const before = text.substring(0, offset)
 
-  const match = before.match(/type\s*:\s*['"]([a-z]*)$/i)
+  // Require `type: '` or `type: "` with optional partial type after it
+  const match = before.match(/type\s*:\s*(['"])([a-z]*)$/i)
   if (!match) return []
 
-  const prefix = match[1]
+  const prefix = match[2] || ''
 
   const contextText = before.toLowerCase()
-  const inAttributes = /attributes\s*:\s*{[^}]*$/.test(contextText)
-  const inInputs = /inputs\s*:\s*{[^}]*$/.test(contextText)
+  const inAttributes = /attributes\s*:\s*{([\s\S]*)$/.test(contextText)
+  const inInputs = /inputs\s*:\s*{([\s\S]*)$/.test(contextText)
 
   if (!(inAttributes || inInputs)) return []
 
@@ -31,7 +32,7 @@ module.exports = function dataTypesCompletion(document, position, typeMap) {
     .map(({ type, description }) => ({
       label: type,
       kind: lsp.CompletionItemKind.TypeParameter,
-      detail: 'Validation type',
+      detail: 'Data type',
       documentation: description,
       insertText: type
     }))

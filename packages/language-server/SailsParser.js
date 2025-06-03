@@ -1,5 +1,7 @@
 const fs = require('fs').promises
 const path = require('path')
+const acorn = require('acorn')
+const walk = require('acorn-walk')
 
 class SailsParser {
   constructor(rootDir) {
@@ -83,36 +85,21 @@ class SailsParser {
     const dir = path.join(this.rootDir, 'api', 'models')
     const models = {}
 
-    // Define Waterline static and chainable methods
     const STATIC_METHODS = [
-      {
-        name: 'find',
-        description: 'Retrieve all records matching criteria.'
-      },
+      { name: 'find', description: 'Retrieve all records matching criteria.' },
       {
         name: 'findOne',
         description: 'Retrieve a single record matching criteria.'
       },
-      {
-        name: 'create',
-        description: 'Create a new record.'
-      },
+      { name: 'create', description: 'Create a new record.' },
       {
         name: 'createEach',
         description: 'Create multiple new records in a batch.'
       },
-      {
-        name: 'update',
-        description: 'Update records matching criteria.'
-      },
-      {
-        name: 'destroy',
-        description: 'Delete records matching criteria.'
-      },
-      {
-        name: 'count',
-        description: 'Count records matching criteria.'
-      },
+      { name: 'update', description: 'Update records matching criteria.' },
+      { name: 'destroy', description: 'Delete records matching criteria.' },
+      { name: 'destroyOne', description: 'Delete a single record.' },
+      { name: 'count', description: 'Count records matching criteria.' },
       {
         name: 'replaceCollection',
         description: 'Replace all items in a collection association.'
@@ -129,85 +116,208 @@ class SailsParser {
         name: 'findOrCreate',
         description: 'Find a record or create it if it does not exist.'
       },
+      { name: 'stream', description: 'Stream results as they are found.' },
+      { name: 'sum', description: 'Calculate the sum of a numeric attribute.' },
+      { name: 'archive', description: 'Archive records instead of deleting.' },
+      { name: 'archiveOne', description: 'Archive a single record.' },
       {
-        name: 'findOrCreateEach',
-        description: 'Find or create multiple records in a batch.'
+        name: 'validate',
+        description: 'Validate a record against its schema.'
+      },
+      {
+        name: 'avg',
+        description: 'Calculate the average of a numeric attribute.'
+      },
+      {
+        name: 'getDatastore',
+        description: 'Get the datastore used by this model.'
       }
     ]
 
     const CHAINABLE_METHODS = [
+      { name: 'where', description: 'Filter records by criteria.' },
+      { name: 'limit', description: 'Limit the number of records returned.' },
+      { name: 'skip', description: 'Skip a number of records.' },
+      { name: 'sort', description: 'Sort records by attributes.' },
+      { name: 'populate', description: 'Populate associated records.' },
+      { name: 'select', description: 'Select specific attributes.' },
+      { name: 'omit', description: 'Omit specific attributes.' },
+      { name: 'meta', description: 'Pass additional options.' },
+      { name: 'decrypt', description: 'Decrypt encrypted attributes.' },
+      { name: 'fetch', description: 'Return affected records.' },
+      { name: 'intercept', description: 'Intercept results with a function.' },
+      { name: 'eachRecord', description: 'Iterate over each record.' },
+      { name: 'toPromise', description: 'Return a promise for the results.' },
+      { name: 'catch', description: 'Handle errors in the query.' },
       {
-        name: 'where',
-        description: 'Filter records by criteria.'
-      },
-      {
-        name: 'limit',
-        description: 'Limit the number of records returned.'
-      },
-      {
-        name: 'skip',
-        description: 'Skip a number of records (for pagination).'
-      },
-      {
-        name: 'sort',
-        description: 'Sort records by specified attributes.'
-      },
-      {
-        name: 'populate',
-        description: 'Populate associated records.'
-      },
-      {
-        name: 'select',
-        description: 'Select only specific attributes to return.'
-      },
-      {
-        name: 'omit',
-        description: 'Omit specific attributes from the result.'
-      },
-      {
-        name: 'meta',
-        description: 'Pass additional options to the query.'
-      },
-      {
-        name: 'decrypt',
-        description: 'Decrypt encrypted attributes in the result.'
+        name: 'usingConnection',
+        description: 'Use a specific database connection.'
       }
     ]
-
+    const context = this
     if (!(await this.#directoryExists(dir))) return models
 
     const files = await fs.readdir(dir)
+
+    // Retrieve attributes from config/models.js
+    let defaultAttributes = {}
+    const modelsConfigPath = path.join(this.rootDir, 'config', 'models.js')
+    if (await this.#fileExists(modelsConfigPath)) {
+      try {
+        const configCode = await fs.readFile(modelsConfigPath, 'utf8')
+        const configAST = acorn.parse(configCode, {
+          ecmaVersion: 'latest',
+          sourceType: 'module'
+        })
+
+        walk.simple(configAST, {
+          AssignmentExpression(node) {
+            // Support: module.exports = { attributes: ... } and { models: { attributes: ... } }
+            if (
+              node.left.type === 'MemberExpression' &&
+              node.left.object.name === 'module' &&
+              node.left.property.name === 'exports' &&
+              node.right.type === 'ObjectExpression'
+            ) {
+              for (const prop of node.right.properties) {
+                if (
+                  prop.key?.name === 'attributes' &&
+                  prop.value?.type === 'ObjectExpression'
+                ) {
+                  defaultAttributes = context.#extractObjectLiteral(prop.value)
+                }
+                if (
+                  prop.key?.name === 'models' &&
+                  prop.value?.type === 'ObjectExpression'
+                ) {
+                  for (const inner of prop.value.properties) {
+                    if (
+                      inner.key?.name === 'attributes' &&
+                      inner.value?.type === 'ObjectExpression'
+                    ) {
+                      defaultAttributes = context.#extractObjectLiteral(
+                        inner.value
+                      )
+                    }
+                  }
+                }
+              }
+            }
+            // Support: module.exports.models = { attributes: ... }
+            if (
+              node.left.type === 'MemberExpression' &&
+              node.left.object.type === 'MemberExpression' &&
+              node.left.object.object.name === 'module' &&
+              node.left.object.property.name === 'exports' &&
+              node.left.property.name === 'models' &&
+              node.right.type === 'ObjectExpression'
+            ) {
+              for (const prop of node.right.properties) {
+                if (
+                  prop.key?.name === 'attributes' &&
+                  prop.value?.type === 'ObjectExpression'
+                ) {
+                  defaultAttributes = context.#extractObjectLiteral(prop.value)
+                }
+              }
+            }
+          }
+        })
+      } catch (err) {
+        console.error('Error parsing config/models.js', err)
+      }
+    }
+
     for (const file of files) {
       if (!file.endsWith('.js')) continue
 
       const name = file.slice(0, -3)
       const modelPath = path.join(dir, file)
+      let attributes = {}
+      const context = this
 
       try {
-        const model = require(modelPath)
-        const info = {
-          path: modelPath,
-          methods: STATIC_METHODS,
-          chainableMethods: CHAINABLE_METHODS,
-          attributes: { ...model.attributes }
-        }
+        const code = await fs.readFile(modelPath, 'utf8')
+        const ast = acorn.parse(code, {
+          ecmaVersion: 'latest',
+          sourceType: 'module'
+        })
 
-        const modelsConfigPath = path.join(this.rootDir, 'config', 'models.js')
-
-        if (await fs.stat(modelsConfigPath)) {
-          const modelsConfig = require(modelsConfigPath)
-          if (modelsConfig.attributes) {
-            info.attributes = { ...modelsConfig.attributes, ...info.attributes }
+        walk.simple(ast, {
+          AssignmentExpression(node) {
+            // Handle: module.exports = { attributes: ... }
+            if (
+              node.left.type === 'MemberExpression' &&
+              node.left.object.name === 'module' &&
+              node.left.property.name === 'exports' &&
+              node.right.type === 'ObjectExpression'
+            ) {
+              for (const prop of node.right.properties) {
+                if (
+                  prop.key?.name === 'attributes' &&
+                  prop.value?.type === 'ObjectExpression'
+                ) {
+                  attributes = context.#extractObjectLiteral(prop.value)
+                }
+              }
+            }
+            // Legacy: module.exports.attributes = { ... }
+            else if (
+              node.left.type === 'MemberExpression' &&
+              node.left.object.type === 'MemberExpression' &&
+              node.left.object.object.name === 'module' &&
+              node.left.object.property.name === 'exports' &&
+              node.left.property.name === 'attributes' &&
+              node.right.type === 'ObjectExpression'
+            ) {
+              attributes = context.#extractObjectLiteral(node.right)
+            }
+          },
+          ExportDefaultDeclaration(node) {
+            if (node.declaration.type === 'ObjectExpression') {
+              for (const prop of node.declaration.properties) {
+                if (
+                  prop.key?.name === 'attributes' &&
+                  prop.value?.type === 'ObjectExpression'
+                ) {
+                  attributes = context.#extractObjectLiteral(prop.value)
+                }
+              }
+            }
           }
-        }
-        models[name] = info
+        })
       } catch (err) {
-        console.error(`Error requiring model: ${file}`, err)
+        console.error(`Error parsing model: ${file}`, err)
+        continue
+      }
+
+      // Merge defaultAttributes first, then model attributes (model overrides default)
+      const mergedAttributes = {}
+      for (const key of Object.keys(defaultAttributes)) {
+        mergedAttributes[key] = defaultAttributes[key]
+      }
+      for (const key of Object.keys(attributes)) {
+        mergedAttributes[key] = attributes[key]
+      }
+      models[name] = {
+        path: modelPath,
+        methods: STATIC_METHODS,
+        chainableMethods: CHAINABLE_METHODS,
+        attributes: mergedAttributes
       }
     }
+
     return models
   }
 
+  async #fileExists(filePath) {
+    try {
+      const stat = await fs.stat(filePath)
+      return stat.isFile()
+    } catch {
+      return false
+    }
+  }
   async #parseViews() {
     const dir = path.join(this.rootDir, 'views')
     const views = {}
@@ -303,7 +413,114 @@ class SailsParser {
                 break
               }
             }
-            helpers[name] = { path: fullPath, fnLine }
+            // Extract inputs and description using acorn
+            let inputs = {}
+            let description = undefined
+            const context = this
+            try {
+              const ast = acorn.parse(content, {
+                ecmaVersion: 'latest',
+                sourceType: 'module'
+              })
+              walk.simple(ast, {
+                AssignmentExpression(node) {
+                  // Only handle: module.exports = { ... }
+                  if (
+                    node.left.type === 'MemberExpression' &&
+                    node.left.object.name === 'module' &&
+                    node.left.property.name === 'exports' &&
+                    node.right.type === 'ObjectExpression'
+                  ) {
+                    for (const prop of node.right.properties) {
+                      if (
+                        prop.key &&
+                        prop.key.name === 'inputs' &&
+                        prop.value.type === 'ObjectExpression'
+                      ) {
+                        inputs = context.#extractObjectLiteral(prop.value)
+                      }
+                      if (
+                        prop.key &&
+                        prop.key.name === 'description' &&
+                        (prop.value.type === 'Literal' ||
+                          prop.value.type === 'TemplateLiteral')
+                      ) {
+                        if (prop.value.type === 'Literal') {
+                          description = prop.value.value
+                        } else if (prop.value.type === 'TemplateLiteral') {
+                          description = prop.value.quasis
+                            .map((q) => q.value.cooked)
+                            .join('')
+                        }
+                      }
+                    }
+                  }
+                },
+                ExportDefaultDeclaration(node) {
+                  // Handle: export default { ... }
+                  if (
+                    node.declaration &&
+                    node.declaration.type === 'ObjectExpression'
+                  ) {
+                    for (const prop of node.declaration.properties) {
+                      if (
+                        prop.key &&
+                        prop.key.name === 'inputs' &&
+                        prop.value.type === 'ObjectExpression'
+                      ) {
+                        inputs = context.#extractObjectLiteral(prop.value)
+                      }
+                      if (
+                        prop.key &&
+                        prop.key.name === 'description' &&
+                        (prop.value.type === 'Literal' ||
+                          prop.value.type === 'TemplateLiteral')
+                      ) {
+                        if (prop.value.type === 'Literal') {
+                          description = prop.value.value
+                        } else if (prop.value.type === 'TemplateLiteral') {
+                          description = prop.value.quasis
+                            .map((q) => q.value.cooked)
+                            .join('')
+                        }
+                      }
+                    }
+                  }
+                }
+              })
+            } catch (e) {}
+            // Fallback: regex extract inputs/description if still empty
+            if (!inputs || Object.keys(inputs).length === 0) {
+              const match = content.match(/inputs\s*:\s*\{([\s\S]*?)\n\s*\}/m)
+              if (match) {
+                try {
+                  // Try to parse as JS object
+                  const fakeObj = `({${match[1]}})`
+                  const ast = acorn.parse(fakeObj, { ecmaVersion: 'latest' })
+                  let obj = {}
+                  walk.simple(ast, {
+                    ObjectExpression(node) {
+                      if (!obj || Object.keys(obj).length === 0) {
+                        obj = context.#extractObjectLiteral(node)
+                      }
+                    }
+                  })
+                  if (obj && Object.keys(obj).length > 0) {
+                    inputs = obj
+                  }
+                } catch (e) {}
+              }
+            }
+            if (!description) {
+              // Try to extract description: '...' or description: "..."
+              const descMatch = content.match(
+                /description\s*:\s*(['"])([\s\S]*?)\1/
+              )
+              if (descMatch) {
+                description = descMatch[2]
+              }
+            }
+            helpers[name] = { path: fullPath, fnLine, inputs, description }
           }
         }
       }
@@ -312,6 +529,38 @@ class SailsParser {
     return helpers
   }
 
+  #extractObjectLiteral(node) {
+    if (node.type !== 'ObjectExpression') return undefined
+    const obj = {}
+    for (const prop of node.properties) {
+      if (prop.type === 'Property') {
+        const key =
+          prop.key.type === 'Identifier' ? prop.key.name : prop.key.value
+        let value
+        if (prop.value.type === 'ObjectExpression') {
+          value = this.#extractObjectLiteral(prop.value)
+        } else if (prop.value.type === 'ArrayExpression') {
+          value = prop.value.elements.map((el) =>
+            el.type === 'ObjectExpression'
+              ? this.#extractObjectLiteral(el)
+              : el.type === 'Literal'
+                ? el.value
+                : el.type === 'Identifier'
+                  ? el.name
+                  : undefined
+          )
+        } else if (prop.value.type === 'Literal') {
+          value = prop.value.value
+        } else if (prop.value.type === 'Identifier') {
+          value = prop.value.name
+        } else {
+          value = undefined
+        }
+        obj[key] = value
+      }
+    }
+    return obj
+  }
   #getDataTypes() {
     return [
       {

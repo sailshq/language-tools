@@ -13,12 +13,17 @@ module.exports = function inputPropsCompletion(document, position, typeMap) {
   const offset = document.offsetAt(position)
   const before = text.substring(0, offset)
 
+  const lines = before.split('\n')
+  const lastLine = lines[lines.length - 1]
+
+  // Only trigger if we're on a new line with optional whitespace (no code)
+  if (!/^\s*$/.test(lastLine)) return []
+
   // Check we're inside the inputs: { ... } section
   const insideInputs = /inputs\s*:\s*{[\s\S]*$/.test(before)
   if (!insideInputs) return []
 
-  // Walk backward to see if we're inside an input property definition
-  const lines = before.split('\n')
+  // Walk backward to see if we're inside an input block
   const reversed = lines.slice().reverse()
   let insideInputBlock = false
 
@@ -28,29 +33,20 @@ module.exports = function inputPropsCompletion(document, position, typeMap) {
       insideInputBlock = true
       break
     }
-    if (/^\}/.test(trimmed)) {
-      break // exited a block
-    }
+    if (/^\}/.test(trimmed)) break
   }
 
   if (!insideInputBlock) return []
 
-  // Extract current typing prefix
-  const lastLine = lines[lines.length - 1]
-  const prefixMatch = lastLine.match(/([a-zA-Z0-9_]*)$/)
-  const prefix = prefixMatch ? prefixMatch[1] : ''
-
-  return typeMap.inputProps
-    .filter(({ label }) => label.startsWith(prefix))
-    .map(({ label, detail }) => ({
-      label,
-      kind:
-        label === 'custom'
-          ? lsp.CompletionItemKind.Method
-          : lsp.CompletionItemKind.Field,
-      detail,
-      documentation: detail,
-      insertText: `${label}: `,
-      insertTextFormat: lsp.InsertTextFormat.PlainText
-    }))
+  return typeMap.inputProps.map(({ label, detail }) => ({
+    label,
+    kind:
+      label === 'custom'
+        ? lsp.CompletionItemKind.Method
+        : lsp.CompletionItemKind.Field,
+    detail,
+    documentation: detail,
+    insertText: `${label}: `,
+    insertTextFormat: lsp.InsertTextFormat.PlainText
+  }))
 }
