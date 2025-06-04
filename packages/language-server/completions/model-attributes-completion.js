@@ -202,17 +202,7 @@ module.exports = function modelAttributesCompletion(
         // Not inside a string, suppress completions
         return []
       }
-    }
-  }
-
-  if (criteriaOptionsArrayMatch) {
-    // For object form: find the select/omit/sort array in the object literal up to the cursor
-    // Try to extract the array content for select: ['foo', 'bar', ...]
-    // Find the last occurrence of select: [ or omit: [ or sort: [ before the cursor
-    const arrayStart = before.lastIndexOf('[')
-    if (arrayStart !== -1) {
-      const arrayContent = before.slice(arrayStart, offset)
-      // Match all quoted strings in the array up to the cursor
+      // Also: filter out already-used attributes in this array
       const usedInArray = Array.from(
         arrayContent.matchAll(/['"`]\s*([a-zA-Z0-9_]+)\s*['"`]/g)
       ).map((m) => m[1])
@@ -224,6 +214,13 @@ module.exports = function modelAttributesCompletion(
     const arrayMatch = before.match(/\[([^\]]*)$/)
     if (arrayMatch) {
       const arrayContent = arrayMatch[1]
+      // Only trigger if the last non-whitespace character is a quote (i.e., user is typing a string)
+      const lastQuote = arrayContent.match(/['"`]([^'"`]*)$/)
+      if (!lastQuote) {
+        // Not inside a string, suppress completions
+        return []
+      }
+      // Also: filter out already-used attributes in this array
       const usedInArray = Array.from(
         arrayContent.matchAll(/['"`]\s*([a-zA-Z0-9_]+)\s*['"`]/g)
       ).map((m) => m[1])
