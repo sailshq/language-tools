@@ -15,10 +15,10 @@ module.exports = function modelMethodsCompletion(document, position, typeMap) {
   const staticCallMatch = before.match(
     /(?:sails\.models\.([A-Za-z_$][\w$]*)|([A-Za-z_$][\w$]*))\.\s*([a-zA-Z]*)?$/
   )
-  // Match chainable calls like User.find().<chainable> or User.find({...}).<chainable>
-  const chainableCallMatch = before.match(
-    /([A-Za-z_$][\w$]*)\.[a-zA-Z_]+\([^)]*\)\.\s*([a-zA-Z]*)?$/
-  )
+  // Match all chainable calls and get the last one for completion
+  const chainableCallMatches = [
+    ...before.matchAll(/([A-Za-z_$][\w$]*)\.[a-zA-Z_]+\([^)]*\)/g)
+  ]
 
   let modelName, prefix, methods
 
@@ -26,11 +26,15 @@ module.exports = function modelMethodsCompletion(document, position, typeMap) {
   const models = typeMap.models || {}
   const modelKeys = Object.keys(models)
 
-  if (chainableCallMatch) {
-    modelName = chainableCallMatch[1]
-    prefix = chainableCallMatch[2] || ''
-    if (!modelName) return []
-    const foundKey = modelKeys.find(
+  if (chainableCallMatches.length > 0) {
+    // Use the last chainable call in the chain
+    const lastMatch = chainableCallMatches[chainableCallMatches.length - 1]
+    modelName = lastMatch[1]
+    // Get the prefix after the last dot (if user is typing e.g. .select)
+    const afterLastChain = before.slice(lastMatch.index + lastMatch[0].length)
+    const prefixMatch = afterLastChain.match(/\.\s*([a-zA-Z]*)?$/)
+    prefix = (prefixMatch && prefixMatch[1]) || ''
+    const foundKey = Object.keys(models).find(
       (k) => k.toLowerCase() === modelName.toLowerCase()
     )
     methods = foundKey ? models[foundKey].chainableMethods || [] : []
@@ -52,7 +56,7 @@ module.exports = function modelMethodsCompletion(document, position, typeMap) {
       let insertText = method.name + '($0)'
       // For chainable .select or .omit, insert ([''])
       if (
-        chainableCallMatch &&
+        chainableCallMatches.length > 0 &&
         (method.name === 'select' || method.name === 'omit')
       ) {
         insertText = method.name + '([$0])'
