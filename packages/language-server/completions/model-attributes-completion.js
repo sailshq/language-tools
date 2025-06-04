@@ -69,27 +69,33 @@ module.exports = function modelAttributesCompletion(
 
   // Suppress completions after a colon only if NOT in a chainable string/array context
   // Also suppress completions after colon in .where({ ... }) context, unless after a comma or at start
-  if (!inChainableString || isInWhereMethodCall || chainedWhereMatch) {
-    const lines = before.split('\n')
-    const line = lines[lines.length - 1]
-    const beforeCursor = line.slice(0, position.character)
-    // If the last non-whitespace character before the cursor is a colon, suppress completion
-    // (but allow after comma, or at start of line/object)
-    const lastColon = beforeCursor.lastIndexOf(':')
-    const lastComma = beforeCursor.lastIndexOf(',')
-    if (lastColon > lastComma && lastColon > beforeCursor.lastIndexOf('{')) {
-      // Check if we are inside a string (e.g. after a colon and inside quotes)
-      // If so, suppress completion
-      const quoteBefore = beforeCursor.lastIndexOf("'")
-      const dquoteBefore = beforeCursor.lastIndexOf('"')
-      if (
-        (quoteBefore > lastColon && quoteBefore > lastComma) ||
-        (dquoteBefore > lastColon && dquoteBefore > lastComma)
-      ) {
+  // FIX: Do not run this suppression logic at all if we are in a select/omit/sort array (object property form)
+  if (!criteriaOptionsArrayMatch) {
+    if (
+      !inChainableString ||
+      ((isInWhereMethodCall || chainedWhereMatch) && !criteriaOptionsArrayMatch)
+    ) {
+      const lines = before.split('\n')
+      const line = lines[lines.length - 1]
+      const beforeCursor = line.slice(0, position.character)
+      // If the last non-whitespace character before the cursor is a colon, suppress completion
+      // (but allow after comma, or at start of line/object)
+      const lastColon = beforeCursor.lastIndexOf(':')
+      const lastComma = beforeCursor.lastIndexOf(',')
+      if (lastColon > lastComma && lastColon > beforeCursor.lastIndexOf('{')) {
+        // Check if we are inside a string (e.g. after a colon and inside quotes)
+        // If so, suppress completion
+        const quoteBefore = beforeCursor.lastIndexOf("'")
+        const dquoteBefore = beforeCursor.lastIndexOf('"')
+        if (
+          (quoteBefore > lastColon && quoteBefore > lastComma) ||
+          (dquoteBefore > lastColon && dquoteBefore > lastComma)
+        ) {
+          return []
+        }
+        // Otherwise, suppress completion after colon
         return []
       }
-      // Otherwise, suppress completion after colon
-      return []
     }
   }
 
@@ -190,15 +196,15 @@ module.exports = function modelAttributesCompletion(
     usedInArray.forEach((attr) => usedProps.add(attr))
   }
 
-  // Improved: Only trigger completions in object form select/omit/sort arrays when inside a string (after opening quote)
+  // Improved: Only trigger completions in object form select/omit/sort arrays when inside a string (between quotes)
   if (criteriaOptionsArrayMatch) {
     // Find the last '[' before the cursor
     const arrayStart = before.lastIndexOf('[')
     if (arrayStart !== -1) {
       const arrayContent = before.slice(arrayStart, offset)
-      // Only trigger if the last non-whitespace character is a quote (i.e., user is typing a string)
-      const lastQuote = arrayContent.match(/['"`]([^'"`]*)$/)
-      if (!lastQuote) {
+      // Use the same logic as chainable: check for a quote before the cursor (inside a string)
+      const quoteMatch = arrayContent.match(/['"`]([^'"`]*)$/)
+      if (!quoteMatch) {
         // Not inside a string, suppress completions
         return []
       }
@@ -209,14 +215,16 @@ module.exports = function modelAttributesCompletion(
       usedInArray.forEach((attr) => usedProps.add(attr))
     }
   }
+
   if (chainableDirectCallMatch) {
     // For array/chainable forms, parse the array up to the cursor and collect used attributes
     const arrayMatch = before.match(/\[([^\]]*)$/)
     if (arrayMatch) {
       const arrayContent = arrayMatch[1]
-      // Only trigger if the last non-whitespace character is a quote (i.e., user is typing a string)
-      const lastQuote = arrayContent.match(/['"`]([^'"`]*)$/)
-      if (!lastQuote) {
+      // Fix: allow completions for any string in the array, not just the first
+      // Find the last quote and ensure the cursor is after it (inside a string)
+      const quoteMatch = arrayContent.match(/['"`][^'"`]*$/)
+      if (!quoteMatch) {
         // Not inside a string, suppress completions
         return []
       }
