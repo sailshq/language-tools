@@ -56,6 +56,29 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
           const model = getModelByName(effectiveModelName)
           if (!model) return
 
+          // Only validate chainable methods that are select, omit, sort, or populate
+          const allowedChainable = ['select', 'omit', 'sort', 'populate']
+
+          // --- Ignore validation for arguments to non-model chainable methods like .intercept ---
+          // If the current method is NOT a model method or allowedChainable, skip validation for its arguments
+          const modelMethods = [
+            'create',
+            'createEach',
+            'count',
+            'find',
+            'findOne',
+            'update',
+            'destroy',
+            'where',
+            'findOrCreate',
+            'sum',
+            ...allowedChainable
+          ]
+          if (!modelMethods.includes(method)) {
+            // This is a non-model method (e.g., intercept, using, etc.), skip validation for its arguments
+            return
+          }
+
           // handle createEach array of objects
           if (
             method === 'createEach' &&
@@ -122,9 +145,9 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
             return
           }
 
-          // --- Unified validation for .select([]), .omit([]), .sort([]) chainable calls ---
+          // --- Unified validation for .select([]), .omit([]), .sort([]), .populate([]) chainable calls only ---
           if (
-            (method === 'select' || method === 'omit' || method === 'sort') &&
+            allowedChainable.includes(method) &&
             node.arguments[0] &&
             node.arguments[0].type === 'ArrayExpression'
           ) {
@@ -218,6 +241,29 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
             node.arguments[0] &&
             node.arguments[0].type === 'ObjectExpression'
           ) {
+            // Only validate if this is a top-level model method call, not an argument to another method (e.g., intercept)
+            // Check that the callee is a direct property of an Identifier (the model), not a nested CallExpression
+            let isTopLevelModelCall = false
+            let calleeObj = node.callee.object
+            if (calleeObj && calleeObj.type === 'Identifier') {
+              isTopLevelModelCall = true
+            } else if (calleeObj && calleeObj.type === 'CallExpression') {
+              // If the parent is a CallExpression, but the root is an Identifier, still allow
+              let root = calleeObj
+              while (
+                root &&
+                root.type === 'CallExpression' &&
+                root.callee &&
+                root.callee.type === 'MemberExpression'
+              ) {
+                root = root.callee.object
+              }
+              if (root && root.type === 'Identifier') {
+                isTopLevelModelCall = true
+              }
+            }
+            // If this is an argument to a non-model method (e.g., intercept), skip validation
+            if (!isTopLevelModelCall) return
             for (const prop of node.arguments[0].properties) {
               const attribute = prop.key && (prop.key.name || prop.key.value)
               const queryOptionKeys = [
