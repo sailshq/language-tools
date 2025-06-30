@@ -282,7 +282,10 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                 'min',
                 'max',
                 'distinct',
-                'meta'
+                'meta',
+                'or',
+                'and',
+                'not'
               ]
               // For non-create methods, validate all top-level keys except query option keys
               if (
