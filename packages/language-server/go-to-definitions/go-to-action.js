@@ -3,7 +3,7 @@ const path = require('path')
 
 module.exports = async function goToAction(document, position, typeMap) {
   const fileName = path.basename(document.uri)
-  if (fileName !== 'routes.js') return null
+  if (fileName !== 'routes.js') return []
 
   const text = document.getText()
   const offset = document.offsetAt(position)
@@ -39,5 +39,5 @@ module.exports = async function goToAction(document, position, typeMap) {
       }
     }
   }
-  return null
+  return []
 }

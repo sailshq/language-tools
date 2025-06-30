@@ -101,7 +101,7 @@ connection.onDefinition(async (params) => {
     helperDefinition,
     modelDefinition
   ].filter(Boolean)
-  return definitions.length > 0 ? definitions : null
+  return definitions
 })
 
 connection.onCompletion(async (params) => {
