@@ -66,6 +66,13 @@ class SailsParser {
     while ((match = regex.exec(content))) {
       const route = match[1]
       const actionName = match[2]
+
+      // Skip redirects and external URLs
+      // Routes that start with '/' or contain '://' are redirects, not actions
+      if (actionName.startsWith('/') || actionName.includes('://')) {
+        continue
+      }
+
       const filePath = path.join(actionsRoot, ...actionName.split('/')) + '.js'
 
       const actionInfo = await this.#parseAction(filePath)
