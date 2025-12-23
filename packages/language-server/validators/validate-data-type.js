@@ -1,34 +1,97 @@
 const lsp = require('vscode-languageserver/node')
+const acorn = require('acorn')
+const walk = require('acorn-walk')
 
 module.exports = function validateDataType(document, typeMap) {
   const diagnostics = []
-
   const text = document.getText()
 
-  // Regex to match lines like: type: 'string' or type: "number"
-  const regex = /type\s*:\s*['"]([a-zA-Z0-9_-]+)['"]/g
+  try {
+    const ast = acorn.parse(text, {
+      ecmaVersion: 'latest',
+      sourceType: 'module'
+    })
 
-  let match
-  while ((match = regex.exec(text)) !== null) {
-    const dataType = match[1]
-    const typeStart = match.index + match[0].indexOf(dataType)
-    const typeEnd = typeStart + dataType.length
+    walk.simple(ast, {
+      ObjectExpression(node) {
+        // Check if this object has both 'type' and other properties that suggest it's a definition
+        // (like 'required', 'description', 'allowNull', 'defaultsTo', 'example', etc.)
+        let hasTypeProperty = false
+        let typePropertyNode = null
+        let typeValue = null
+        let hasDefinitionProperties = false
 
-    const isValid = typeMap.dataTypes.some((dt) => dt.type === dataType)
+        for (const prop of node.properties) {
+          if (prop.type !== 'Property') continue
 
-    if (!isValid) {
-      diagnostics.push(
-        lsp.Diagnostic.create(
-          lsp.Range.create(
-            document.positionAt(typeStart),
-            document.positionAt(typeEnd)
-          ),
-          `'${dataType}' is not a recognized data type. Valid data types are: ${typeMap.dataTypes.map((dataType) => dataType.type).join(', ')}.`,
-          lsp.DiagnosticSeverity.Error,
-          'sails-lsp'
-        )
-      )
-    }
+          const keyName = prop.key.name || prop.key.value
+
+          // Check if this is a 'type' property
+          if (keyName === 'type' && prop.value.type === 'Literal') {
+            hasTypeProperty = true
+            typePropertyNode = prop.value
+            typeValue = prop.value.value
+          }
+
+          // Check for properties that indicate this is a model/action/helper definition
+          if (
+            [
+              'required',
+              'description',
+              'allowNull',
+              'defaultsTo',
+              'columnName',
+              'columnType',
+              'autoMigrations',
+              'autoCreatedAt',
+              'autoUpdatedAt',
+              'model',
+              'collection',
+              'via',
+              'through',
+              'unique',
+              'isEmail',
+              'isURL',
+              'isIn',
+              'min',
+              'max',
+              'minLength',
+              'maxLength',
+              'example',
+              'validations',
+              'regex',
+              'extendedDescription',
+              'moreInfoUrl',
+              'whereToGet'
+            ].includes(keyName)
+          ) {
+            hasDefinitionProperties = true
+          }
+        }
+
+        // Only validate if this looks like an attribute/input definition
+        if (hasTypeProperty && hasDefinitionProperties && typeValue) {
+          const isValid = typeMap.dataTypes.some((dt) => dt.type === typeValue)
+
+          if (!isValid) {
+            diagnostics.push(
+              lsp.Diagnostic.create(
+                lsp.Range.create(
+                  document.positionAt(typePropertyNode.start),
+                  document.positionAt(typePropertyNode.end)
+                ),
+                `'${typeValue}' is not a recognized data type. Valid data types are: ${typeMap.dataTypes.map((dataType) => dataType.type).join(', ')}.`,
+                lsp.DiagnosticSeverity.Error,
+                'sails-lsp'
+              )
+            )
+          }
+        }
+      }
+    })
+  } catch (error) {
+    // Ignore parse errors
   }
+
   return diagnostics
 }
