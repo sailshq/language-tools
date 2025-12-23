@@ -21,30 +21,31 @@ module.exports = function modelAttributePropsCompletion(
   const insideAttributes = /attributes\s*:\s*{([\s\S]*)$/.exec(before)
   if (!insideAttributes) return []
 
-  // Use a stack to track braces and find if we're inside a property block
-  let braceStack = []
-  let insideProperty = false
-  for (let i = lines.length - 1; i >= 0; i--) {
+  // Count nesting depth from attributes: { to current position
+  // We want depth > 1 (inside a property) not depth === 1 (top level of attributes)
+  let depth = 0
+  let foundAttributesBlock = false
+
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    for (let j = line.length - 1; j >= 0; j--) {
-      if (line[j] === '}') braceStack.push('}')
-      if (line[j] === '{') {
-        if (braceStack.length > 0) {
-          braceStack.pop()
-        } else {
-          const propMatch = lines[i]
-            .slice(0, j + 1)
-            .match(/([a-zA-Z0-9_]+)\s*:\s*{$/)
-          if (propMatch) insideProperty = true
-          break
-        }
+
+    if (/attributes\s*:\s*{/.test(line)) {
+      foundAttributesBlock = true
+      depth = 1
+      continue
+    }
+
+    if (foundAttributesBlock) {
+      for (let j = 0; j < line.length; j++) {
+        if (line[j] === '{') depth++
+        if (line[j] === '}') depth--
       }
     }
-    if (insideProperty) break
-    if (/^\s*attributes\s*:\s*{/.test(line)) break
   }
 
-  if (!insideProperty) return []
+  // Only provide completions if we're nested inside a property (depth > 1)
+  // depth === 1 means we're at the top level of attributes: {}
+  if (depth <= 1) return []
 
   return typeMap.modelAttributeProps.map(({ label, detail }) => ({
     label,
