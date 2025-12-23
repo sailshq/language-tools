@@ -60,30 +60,68 @@ class SailsParser {
     const actionsRoot = path.join(this.rootDir, 'api', 'controllers')
     const content = await this.#readFile(routesPath)
     const routes = {}
+    const actionsToParse = []
 
-    const regex = /['"]([^'"]+)['"]\s*:\s*['"]([^'"]+)['"]/g
-    let match
-    while ((match = regex.exec(content))) {
-      const route = match[1]
-      const actionName = match[2]
+    try {
+      const ast = acorn.parse(content, {
+        ecmaVersion: 'latest',
+        sourceType: 'module'
+      })
 
-      // Skip redirects and external URLs
-      // Routes that start with '/' or contain '://' are redirects, not actions
-      if (actionName.startsWith('/') || actionName.includes('://')) {
-        continue
-      }
+      walk.simple(ast, {
+        Property(node) {
+          const routePattern = node.key?.value || node.key?.name
+          if (!routePattern) return
 
-      const filePath = path.join(actionsRoot, ...actionName.split('/')) + '.js'
+          let actionName = null
 
-      const actionInfo = await this.#parseAction(filePath)
+          if (
+            node.value?.type === 'Literal' &&
+            typeof node.value.value === 'string'
+          ) {
+            actionName = node.value.value
+          } else if (
+            node.value?.type === 'ObjectExpression' &&
+            node.value.properties
+          ) {
+            for (const prop of node.value.properties) {
+              if (
+                prop.type === 'Property' &&
+                (prop.key?.name === 'action' || prop.key?.value === 'action') &&
+                prop.value?.type === 'Literal' &&
+                typeof prop.value.value === 'string'
+              ) {
+                actionName = prop.value.value
+                break
+              }
+            }
+          }
 
-      routes[route] = {
-        action: {
-          name: actionName,
-          path: filePath,
-          ...actionInfo
+          if (
+            actionName &&
+            !actionName.startsWith('/') &&
+            !actionName.includes('://')
+          ) {
+            actionsToParse.push({ routePattern, actionName })
+          }
+        }
+      })
+
+      for (const { routePattern, actionName } of actionsToParse) {
+        const filePath =
+          path.join(actionsRoot, ...actionName.split('/')) + '.js'
+        const actionInfo = await this.#parseAction(filePath)
+
+        routes[routePattern] = {
+          action: {
+            name: actionName,
+            path: filePath,
+            ...actionInfo
+          }
         }
       }
+    } catch (error) {
+      console.error('Error parsing routes:', error)
     }
 
     return routes
