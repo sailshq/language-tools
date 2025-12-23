@@ -11,6 +11,23 @@ module.exports = function modelMethodsCompletion(document, position, typeMap) {
   const offset = document.offsetAt(position)
   const before = text.substring(0, offset)
 
+  // Don't provide method completions when cursor is inside an object or array literal
+  // Count opening and closing braces/brackets to determine if we're inside one
+  const lastOpenBrace = before.lastIndexOf('{')
+  const lastCloseBrace = before.lastIndexOf('}')
+  const lastOpenBracket = before.lastIndexOf('[')
+  const lastCloseBracket = before.lastIndexOf(']')
+
+  if (lastOpenBrace !== -1 && lastOpenBrace > lastCloseBrace) {
+    // We're inside an object literal, don't show method completions
+    return []
+  }
+
+  if (lastOpenBracket !== -1 && lastOpenBracket > lastCloseBracket) {
+    // We're inside an array literal, don't show method completions
+    return []
+  }
+
   // Match static calls like User.method or sails.models.user.method
   const staticCallMatch = before.match(
     /(?:sails\.models\.([A-Za-z_$][\w$]*)|([A-Za-z_$][\w$]*))\.\s*([a-zA-Z]*)?$/
@@ -33,7 +50,13 @@ module.exports = function modelMethodsCompletion(document, position, typeMap) {
     // Get the prefix after the last dot (if user is typing e.g. .select)
     const afterLastChain = before.slice(lastMatch.index + lastMatch[0].length)
     const prefixMatch = afterLastChain.match(/\.\s*([a-zA-Z]*)?$/)
-    prefix = (prefixMatch && prefixMatch[1]) || ''
+
+    // Only provide chainable method completions if there's a dot after the call
+    if (!prefixMatch) {
+      return []
+    }
+
+    prefix = prefixMatch[1] || ''
     const foundKey = Object.keys(models).find(
       (k) => k.toLowerCase() === modelName.toLowerCase()
     )
