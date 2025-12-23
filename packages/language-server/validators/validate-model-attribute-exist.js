@@ -26,6 +26,21 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
     return typeMap.models[upper]
   }
 
+  // Helper to check if an identifier is likely a Sails model
+  function isLikelyModel(name) {
+    if (!name) return false
+    // Check if it's in the typeMap models (case-insensitive)
+    const upper = name.charAt(0).toUpperCase() + name.slice(1)
+    if (typeMap.models && typeMap.models[upper]) {
+      return true
+    }
+    // Also check lowercase version
+    if (typeMap.models && typeMap.models[name.toLowerCase()]) {
+      return true
+    }
+    return false
+  }
+
   // AST-based: Validate Model.create({ ... }) and similar
   try {
     const ast = acorn.parse(text, {
@@ -53,6 +68,9 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
               break
             }
           }
+          // Only proceed if this is actually a known Sails model
+          if (!isLikelyModel(effectiveModelName)) return
+
           const model = getModelByName(effectiveModelName)
           if (!model) return
 
