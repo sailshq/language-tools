@@ -1,49 +1,109 @@
 const lsp = require('vscode-languageserver/node')
+const acorn = require('acorn')
+const walk = require('acorn-walk')
 
 module.exports = function validateRequiredHelperInput(document, typeMap) {
   const diagnostics = []
   const text = document.getText()
 
-  // Regex to match sails.helpers.foo.bar.with({ ... })
-  // Captures: 1) helper path, 2) object literal content
-  const regex = /sails\.helpers((?:\.[a-zA-Z0-9_]+)+)\.with\s*\(\s*\{([^}]*)\}/g
-  let match
-  while ((match = regex.exec(text)) !== null) {
-    // Build helper name: e.g. .foo.bar => foo/bar
-    const segments = match[1].split('.').filter(Boolean)
-    const toKebab = (s) => s.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
-    const fullHelperName = segments.map(toKebab).join('/')
-    const helperInfo = typeMap.helpers && typeMap.helpers[fullHelperName]
-    if (!helperInfo || !helperInfo.inputs) continue
+  try {
+    const ast = acorn.parse(text, {
+      ecmaVersion: 'latest',
+      sourceType: 'module'
+    })
 
-    // Find all property names in the object literal
-    const propsRegex = /([a-zA-Z0-9_]+)\s*:/g
-    let propMatch
-    const providedKeys = new Set()
-    while ((propMatch = propsRegex.exec(match[2])) !== null) {
-      providedKeys.add(propMatch[1])
-    }
-    // Check for missing required inputs (support boolean or string 'required')
-    for (const [inputKey, inputDef] of Object.entries(helperInfo.inputs)) {
-      const isRequired =
-        inputDef && (inputDef.required === true || inputDef.required === 'true')
-      if (isRequired && !providedKeys.has(inputKey)) {
-        // Find the start/end of the object literal for the diagnostic range
-        const objStart = match.index + match[0].indexOf('{')
-        const objEnd = objStart + match[2].length + 1 // +1 for closing }
-        diagnostics.push(
-          lsp.Diagnostic.create(
-            lsp.Range.create(
-              document.positionAt(objStart),
-              document.positionAt(objEnd)
-            ),
-            `Missing required input '${inputKey}' for helper '${fullHelperName}'.`,
-            lsp.DiagnosticSeverity.Error,
-            'sails-lsp'
-          )
-        )
+    walk.simple(ast, {
+      CallExpression(node) {
+        // Match sails.helpers.foo.bar.with({ ... })
+        if (
+          node.callee &&
+          node.callee.type === 'MemberExpression' &&
+          node.callee.property.name === 'with' &&
+          node.callee.object &&
+          node.callee.object.type === 'MemberExpression'
+        ) {
+          // Extract helper path from sails.helpers.foo.bar
+          const helperPath = extractHelperPath(node.callee.object)
+          if (!helperPath) return
+
+          const helperInfo = typeMap.helpers && typeMap.helpers[helperPath]
+          if (!helperInfo || !helperInfo.inputs) return
+
+          // Get the object argument to .with()
+          const objArg = node.arguments[0]
+          if (!objArg || objArg.type !== 'ObjectExpression') return
+
+          // Collect provided keys (handles both regular and shorthand properties)
+          const providedKeys = new Set()
+          for (const prop of objArg.properties) {
+            if (prop.type === 'Property') {
+              if (prop.key.type === 'Identifier') {
+                providedKeys.add(prop.key.name)
+              } else if (prop.key.type === 'Literal') {
+                providedKeys.add(prop.key.value)
+              }
+            }
+          }
+
+          // Check for missing required inputs
+          for (const [inputKey, inputDef] of Object.entries(
+            helperInfo.inputs
+          )) {
+            const isRequired =
+              inputDef &&
+              (inputDef.required === true || inputDef.required === 'true')
+            if (isRequired && !providedKeys.has(inputKey)) {
+              diagnostics.push(
+                lsp.Diagnostic.create(
+                  lsp.Range.create(
+                    document.positionAt(objArg.start),
+                    document.positionAt(objArg.end)
+                  ),
+                  `Missing required input '${inputKey}' for helper '${helperPath}'.`,
+                  lsp.DiagnosticSeverity.Error,
+                  'sails-lsp'
+                )
+              )
+            }
+          }
+        }
       }
-    }
+    })
+  } catch (error) {
+    // Ignore parse errors
   }
+
   return diagnostics
+}
+
+function extractHelperPath(node) {
+  // Walk up the member expression to extract the full helper path
+  const segments = []
+  let current = node
+
+  // Collect all segments until we reach sails.helpers
+  while (current && current.type === 'MemberExpression') {
+    if (current.property && current.property.type === 'Identifier') {
+      const propName = current.property.name
+      // Stop when we reach 'helpers'
+      if (propName === 'helpers') {
+        // Check if the object is 'sails'
+        if (
+          current.object &&
+          current.object.type === 'Identifier' &&
+          current.object.name === 'sails'
+        ) {
+          // Valid sails.helpers path found
+          const toKebab = (s) =>
+            s.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
+          return segments.map(toKebab).join('/')
+        }
+        return null
+      }
+      segments.unshift(propName)
+    }
+    current = current.object
+  }
+
+  return null
 }
