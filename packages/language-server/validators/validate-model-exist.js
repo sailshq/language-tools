@@ -19,12 +19,26 @@ module.exports = function validateModelExist(document, typeMap) {
     if (!name) return false
     return !!modelMap[name.toLowerCase()]
   }
+
+  const knownGlobals = [
+    '_',
+    'sails',
+    'require',
+    'module',
+    'exports',
+    'console',
+    'process'
+  ]
+
   // User.find() or User.create() etc
   const modelCallRegex =
     /\b([A-Za-z0-9_]+)\s*\.(?:find|findOne|create|createEach|update|destroy|count|sum|where|findOrCreate)\s*\(/g
   let match
   while ((match = modelCallRegex.exec(text)) !== null) {
     const modelName = match[1]
+    if (knownGlobals.includes(modelName)) {
+      continue
+    }
     if (!modelExists(modelName)) {
       diagnostics.push(
         lsp.Diagnostic.create(

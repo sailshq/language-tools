@@ -141,6 +141,21 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
   // Helper to check if an identifier is likely a Sails model
   function isLikelyModel(name) {
     if (!name) return false
+
+    // Exclude common globals and libraries
+    const knownGlobals = [
+      '_',
+      'sails',
+      'require',
+      'module',
+      'exports',
+      'console',
+      'process'
+    ]
+    if (knownGlobals.includes(name)) {
+      return false
+    }
+
     // Check if it's in the typeMap models (case-insensitive)
     const upper = name.charAt(0).toUpperCase() + name.slice(1)
     if (typeMap.models && typeMap.models[upper]) {
