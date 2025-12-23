@@ -1,4 +1,22 @@
 const lsp = require('vscode-languageserver/node')
+const acorn = require('acorn')
+const walk = require('acorn-walk')
+
+const WATERLINE_MODIFIERS = ['or', 'and', 'not']
+const WATERLINE_OPERATORS = [
+  '<',
+  '<=',
+  '>',
+  '>=',
+  '!=',
+  'nin',
+  'in',
+  'contains',
+  'startsWith',
+  'endsWith',
+  'like',
+  '!'
+]
 
 module.exports = function modelAttributesCompletion(
   document,
@@ -14,6 +32,31 @@ module.exports = function modelAttributesCompletion(
   const text = document.getText()
   const offset = document.offsetAt(position)
   const before = text.substring(0, offset)
+
+  // Don't provide completions after a chainable method call dot (e.g., User.find().catch|)
+  // This context should show chainable methods, not attributes
+  const afterChainableDot = /\.[a-zA-Z_]+\([^)]*\)\.\s*[a-zA-Z]*$/
+  if (afterChainableDot.test(before)) {
+    return []
+  }
+
+  // Don't provide completions inside operator value arrays like { in: ['val1', ''] }
+  // Check if we're inside an array that follows an operator
+  const insideOperatorArray = before.match(
+    /(in|nin|contains|startsWith|endsWith|like)\s*:\s*\[[^\]]*$/
+  )
+  if (insideOperatorArray) {
+    return []
+  }
+
+  // Don't provide completions inside operator objects like { contains: '...', | }
+  // Check if we're after a comma inside an object that has operator keys
+  const insideOperatorObject = before.match(
+    /\{[^}]*(contains|startsWith|endsWith|like|in|nin|<|<=|>|>=|!=|!)\s*:[^}]*,\s*[a-zA-Z0-9_]*$/
+  )
+  if (insideOperatorObject) {
+    return []
+  }
 
   const criteriaMatch = before.match(
     /(?:sails\.models\.([A-Za-z_$][\w$]*)|([A-Za-z_$][\w$]*))\s*\.\w+\s*\(\s*\{[^}]*([a-zA-Z0-9_]*)?$/
@@ -107,6 +150,23 @@ module.exports = function modelAttributesCompletion(
   const models = typeMap.models || {}
   const modelKeys = Object.keys(models)
 
+  // Helper to check if an identifier is a known Sails model
+  function isLikelyModel(name) {
+    if (!name) return false
+    const knownGlobals = [
+      '_',
+      'sails',
+      'require',
+      'module',
+      'exports',
+      'console',
+      'process'
+    ]
+    if (knownGlobals.includes(name)) return false
+    const upper = name.charAt(0).toUpperCase() + name.slice(1)
+    return !!(typeMap.models && typeMap.models[upper])
+  }
+
   // Better model name inference using last static model call
   function inferModelName(before) {
     const allMatches = [
@@ -117,6 +177,296 @@ module.exports = function modelAttributesCompletion(
     if (allMatches.length === 0) return null
     const last = allMatches[allMatches.length - 1]
     return last[1] || last[2] || null
+  }
+
+  // AST-based detection: Check if cursor is inside a Waterline query object
+  // This handles nested contexts like or/and/not modifiers and operator objects
+  try {
+    const ast = acorn.parse(text, {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      locations: true
+    })
+
+    let astModelName = null
+    let astPrefix = ''
+    let foundContext = false
+
+    walk.ancestor(ast, {
+      CallExpression(node, ancestors) {
+        if (!node.callee || node.callee.type !== 'MemberExpression') return
+
+        // Only trigger for query methods, not chainable methods
+        const method = node.callee.property?.name
+        const queryMethods = [
+          'find',
+          'findOne',
+          'create',
+          'createEach',
+          'update',
+          'destroy',
+          'count',
+          'sum',
+          'findOrCreate',
+          'where'
+        ]
+        if (!queryMethods.includes(method)) return
+
+        // Extract model name from call chain
+        let obj = node.callee.object
+        while (obj) {
+          if (obj.type === 'Identifier') {
+            if (isLikelyModel(obj.name)) {
+              astModelName = obj.name
+            }
+            break
+          } else if (
+            obj.type === 'CallExpression' &&
+            obj.callee &&
+            obj.callee.type === 'MemberExpression'
+          ) {
+            obj = obj.callee.object
+          } else {
+            break
+          }
+        }
+
+        if (!astModelName) return
+
+        // Helper to get model by name
+        function getModelByName(name) {
+          if (!name) return undefined
+          const upper = name.charAt(0).toUpperCase() + name.slice(1)
+          return typeMap.models[upper]
+        }
+
+        // Check if cursor is inside an argument object
+        const arg = node.arguments[0]
+        if (!arg || arg.type !== 'ObjectExpression') return
+        if (offset < arg.start || offset > arg.end) return
+
+        // Query option keys that should NOT be treated as model attributes
+        const queryOptionKeys = [
+          'where',
+          'select',
+          'omit',
+          'sort',
+          'limit',
+          'skip',
+          'page',
+          'populate',
+          'groupBy',
+          'having',
+          'sum',
+          'average',
+          'min',
+          'max',
+          'distinct',
+          'meta'
+        ]
+
+        // Recursively check if cursor is in a valid attribute position
+        function checkObjectForCursor(objNode, isInsideWhere = false) {
+          if (!objNode || objNode.type !== 'ObjectExpression') return false
+          if (offset < objNode.start || offset > objNode.end) return false
+
+          // Determine if this object contains any model attributes (vs only query options)
+          let hasAttributes = false
+          let hasQueryOptions = false
+          let hasOperators = false
+          for (const prop of objNode.properties) {
+            if (!prop.key) continue
+            const keyName = prop.key.name || prop.key.value
+            if (queryOptionKeys.includes(keyName)) {
+              hasQueryOptions = true
+            } else if (WATERLINE_OPERATORS.includes(keyName)) {
+              hasOperators = true
+            } else if (!WATERLINE_MODIFIERS.includes(keyName)) {
+              // Check if it's a valid attribute
+              const model = getModelByName(astModelName)
+              if (
+                model &&
+                model.attributes &&
+                Object.prototype.hasOwnProperty.call(model.attributes, keyName)
+              ) {
+                hasAttributes = true
+              }
+            }
+          }
+
+          // If this object contains operators, it's an operator object - don't show completions
+          if (hasOperators) {
+            return false
+          }
+
+          // Determine context:
+          // - If we have query options (like where, select, limit), this is a query options object
+          // - If we're explicitly inside a where clause (isInsideWhere), show attributes
+          // - If we have attributes but no query options, it's a criteria object
+          const isCriteriaMode =
+            isInsideWhere || (hasAttributes && !hasQueryOptions)
+
+          // If we have query options and we're not inside where, this is NOT a criteria context
+          // Don't show attribute completions at the query options level
+          if (hasQueryOptions && !isInsideWhere) {
+            // But we still need to check if we're typing a new key after existing query options
+            // Check if cursor is in a position to type a new key
+            const isTypingNewKey =
+              objNode.properties.length > 0 &&
+              offset > objNode.properties[objNode.properties.length - 1].end &&
+              offset < objNode.end
+
+            if (isTypingNewKey) {
+              // Don't show attributes, this should show query option keys instead
+              return false
+            }
+          }
+
+          for (const prop of objNode.properties) {
+            if (!prop.key) continue
+
+            // Check if cursor is at the key position (typing attribute name)
+            if (offset >= prop.key.start && offset <= prop.key.end) {
+              const keyName = prop.key.name || prop.key.value
+              // Skip if it's a modifier or operator
+              if (
+                WATERLINE_MODIFIERS.includes(keyName) ||
+                WATERLINE_OPERATORS.includes(keyName)
+              ) {
+                return false
+              }
+              // Skip query option keys if we're in criteria mode
+              if (isCriteriaMode && queryOptionKeys.includes(keyName)) {
+                return false
+              }
+              astPrefix = text.substring(prop.key.start, offset)
+              return true
+            }
+
+            const keyName = prop.key.name || prop.key.value
+
+            // If it's 'where', check inside its object value
+            if (keyName === 'where') {
+              if (prop.value && prop.value.type === 'ObjectExpression') {
+                if (checkObjectForCursor(prop.value, true)) return true
+              }
+            }
+
+            // If it's a modifier (or/and/not), check inside the array
+            if (WATERLINE_MODIFIERS.includes(keyName)) {
+              if (
+                prop.value &&
+                prop.value.type === 'ArrayExpression' &&
+                prop.value.elements
+              ) {
+                for (const el of prop.value.elements) {
+                  if (el && el.type === 'ObjectExpression') {
+                    if (checkObjectForCursor(el, true)) return true
+                  }
+                }
+              }
+            }
+
+            // If the value is an object with operators, don't recurse into it
+            if (
+              prop.value &&
+              prop.value.type === 'ObjectExpression' &&
+              prop.value.properties &&
+              prop.value.properties.length > 0
+            ) {
+              const firstKey =
+                prop.value.properties[0].key?.name ||
+                prop.value.properties[0].key?.value
+              if (WATERLINE_OPERATORS.includes(firstKey)) {
+                // This is an operator object like { '>': 100 } or { in: [...] }
+                // Don't provide completions inside operator values
+                continue
+              }
+            }
+
+            // If the value is an array and we're inside it, check if this is an operator value
+            // For example: { in: ['val1', 'val2'] } - don't complete inside the array
+            if (
+              prop.value &&
+              prop.value.type === 'ArrayExpression' &&
+              offset >= prop.value.start &&
+              offset <= prop.value.end
+            ) {
+              // Check if this property key is an operator
+              if (WATERLINE_OPERATORS.includes(keyName)) {
+                // We're inside an operator's array value - don't provide attribute completions
+                return false
+              }
+            }
+          }
+
+          // Check if cursor is after last property (typing new attribute)
+          if (objNode.properties.length > 0) {
+            const lastProp = objNode.properties[objNode.properties.length - 1]
+            if (offset > lastProp.end && offset < objNode.end) {
+              // Cursor is after last property, typing new attribute
+              const afterLast = text.substring(lastProp.end, offset)
+              const newKeyMatch = afterLast.match(/[,\s]*([a-zA-Z0-9_]*)$/)
+              if (newKeyMatch) {
+                astPrefix = newKeyMatch[1]
+                // Return true to indicate we found a valid context
+                // The isCriteriaMode flag will be used when building completions
+                return true
+              }
+            }
+          } else {
+            // Empty object, check if cursor is inside
+            const insideText = text.substring(objNode.start + 1, offset)
+            const newKeyMatch = insideText.match(/^\s*([a-zA-Z0-9_]*)$/)
+            if (newKeyMatch) {
+              astPrefix = newKeyMatch[1]
+              return true
+            }
+          }
+
+          return false
+        }
+
+        if (checkObjectForCursor(arg)) {
+          foundContext = true
+        }
+      }
+    })
+
+    if (foundContext && astModelName) {
+      modelName = astModelName
+      prefix = astPrefix
+      const foundKey = modelKeys.find(
+        (k) => k.toLowerCase() === modelName.toLowerCase()
+      )
+      const model = foundKey ? models[foundKey] : null
+      if (model) {
+        attributes = Object.keys(model.attributes || {})
+        return Array.from(
+          new Set(
+            attributes.filter((attr) =>
+              attr.toLowerCase().startsWith(prefix.toLowerCase())
+            )
+          )
+        ).map((attr) => {
+          const attrDef = model.attributes && model.attributes[attr]
+          let type = attrDef && attrDef.type ? attrDef.type : ''
+          let required = attrDef && attrDef.required ? 'required' : 'optional'
+          let detail = type ? `${type} (${required})` : required
+          return {
+            label: attr,
+            kind: lsp.CompletionItemKind.Field,
+            detail,
+            documentation: `${modelName}.${attr}`,
+            sortText: attr,
+            filterText: attr,
+            insertText: attr
+          }
+        })
+      }
+    }
+  } catch (err) {
+    // Fall through to regex-based detection
   }
 
   // Determine the current Sails.js model context and attribute prefix for completions
