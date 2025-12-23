@@ -3,6 +3,118 @@ const acorn = require('acorn')
 const walk = require('acorn-walk')
 
 /**
+ * Waterline query modifiers and operators
+ */
+const WATERLINE_MODIFIERS = ['or', 'and', 'not']
+const WATERLINE_OPERATORS = [
+  '<',
+  '<=',
+  '>',
+  '>=',
+  '!=',
+  'nin',
+  'in',
+  'contains',
+  'startsWith',
+  'endsWith',
+  'like',
+  '!'
+]
+
+/**
+ * Helper function to recursively validate criteria attributes
+ * @param {Object} objNode - AST ObjectExpression node
+ * @param {Object} model - Model with attributes
+ * @param {TextDocument} document - Text document
+ * @param {Array} diagnostics - Diagnostics array to push to
+ * @param {string} effectiveModelName - Model name for error messages
+ */
+function validateCriteriaAttributes(
+  objNode,
+  model,
+  document,
+  diagnostics,
+  effectiveModelName
+) {
+  if (!objNode || objNode.type !== 'ObjectExpression' || !objNode.properties) {
+    return
+  }
+
+  for (const prop of objNode.properties) {
+    if (!prop.key) continue
+    const attrName = prop.key.name || prop.key.value
+
+    if (WATERLINE_MODIFIERS.includes(attrName)) {
+      if (
+        prop.value &&
+        prop.value.type === 'ArrayExpression' &&
+        prop.value.elements
+      ) {
+        for (const el of prop.value.elements) {
+          if (el && el.type === 'ObjectExpression') {
+            validateCriteriaAttributes(
+              el,
+              model,
+              document,
+              diagnostics,
+              effectiveModelName
+            )
+          }
+        }
+      }
+      continue
+    }
+
+    if (
+      prop.value &&
+      prop.value.type === 'ObjectExpression' &&
+      prop.value.properties &&
+      prop.value.properties.length > 0
+    ) {
+      const firstKey =
+        prop.value.properties[0].key?.name ||
+        prop.value.properties[0].key?.value
+      if (WATERLINE_OPERATORS.includes(firstKey)) {
+        if (
+          !model.attributes ||
+          !Object.prototype.hasOwnProperty.call(model.attributes, attrName)
+        ) {
+          diagnostics.push(
+            lsp.Diagnostic.create(
+              lsp.Range.create(
+                document.positionAt(prop.key.start),
+                document.positionAt(prop.key.end)
+              ),
+              `'${attrName}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+              lsp.DiagnosticSeverity.Error,
+              'sails-lsp'
+            )
+          )
+        }
+        continue
+      }
+    }
+
+    if (
+      !model.attributes ||
+      !Object.prototype.hasOwnProperty.call(model.attributes, attrName)
+    ) {
+      diagnostics.push(
+        lsp.Diagnostic.create(
+          lsp.Range.create(
+            document.positionAt(prop.key.start),
+            document.positionAt(prop.key.end)
+          ),
+          `'${attrName}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
+          lsp.DiagnosticSeverity.Error,
+          'sails-lsp'
+        )
+      )
+    }
+  }
+}
+
+/**
  * Validate if a Waterline model attribute exists when used in criteria or chainable methods.
  * @param {TextDocument} document - The text document to validate.
  * @param {Object} typeMap - The type map containing models and their attributes.
@@ -24,6 +136,36 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
     if (!name) return undefined
     const upper = name.charAt(0).toUpperCase() + name.slice(1)
     return typeMap.models[upper]
+  }
+
+  // Helper to check if an identifier is likely a Sails model
+  function isLikelyModel(name) {
+    if (!name) return false
+
+    // Exclude common globals and libraries
+    const knownGlobals = [
+      '_',
+      'sails',
+      'require',
+      'module',
+      'exports',
+      'console',
+      'process'
+    ]
+    if (knownGlobals.includes(name)) {
+      return false
+    }
+
+    // Check if it's in the typeMap models (case-insensitive)
+    const upper = name.charAt(0).toUpperCase() + name.slice(1)
+    if (typeMap.models && typeMap.models[upper]) {
+      return true
+    }
+    // Also check lowercase version
+    if (typeMap.models && typeMap.models[name.toLowerCase()]) {
+      return true
+    }
+    return false
   }
 
   // AST-based: Validate Model.create({ ... }) and similar
@@ -53,6 +195,9 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
               break
             }
           }
+          // Only proceed if this is actually a known Sails model
+          if (!isLikelyModel(effectiveModelName)) return
+
           const model = getModelByName(effectiveModelName)
           if (!model) return
 
@@ -287,66 +432,28 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                 'and',
                 'not'
               ]
-              // For non-create methods, validate all top-level keys except query option keys
-              if (
-                method !== 'create' &&
-                method !== 'createEach' &&
-                !queryOptionKeys.includes(attribute)
-              ) {
-                if (
-                  !model.attributes ||
-                  !Object.prototype.hasOwnProperty.call(
-                    model.attributes,
-                    attribute
+              // For non-create methods, use the helper to validate criteria
+              if (method !== 'create' && method !== 'createEach') {
+                if (!queryOptionKeys.includes(attribute)) {
+                  validateCriteriaAttributes(
+                    { type: 'ObjectExpression', properties: [prop] },
+                    model,
+                    document,
+                    diagnostics,
+                    effectiveModelName
                   )
-                ) {
-                  diagnostics.push(
-                    lsp.Diagnostic.create(
-                      lsp.Range.create(
-                        document.positionAt(prop.key.start),
-                        document.positionAt(prop.key.end)
-                      ),
-                      `'${attribute}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
-                      lsp.DiagnosticSeverity.Error,
-                      'sails-lsp'
-                    )
-                  )
-                }
-                continue
-              }
-              if (
-                method !== 'create' &&
-                method !== 'createEach' &&
-                queryOptionKeys.includes(attribute)
-              ) {
-                if (
+                } else if (
                   attribute === 'where' &&
                   prop.value &&
                   prop.value.type === 'ObjectExpression'
                 ) {
-                  for (const whereProp of prop.value.properties) {
-                    if (!whereProp.key) continue
-                    const whereAttr = whereProp.key.name || whereProp.key.value
-                    if (
-                      !model.attributes ||
-                      !Object.prototype.hasOwnProperty.call(
-                        model.attributes,
-                        whereAttr
-                      )
-                    ) {
-                      diagnostics.push(
-                        lsp.Diagnostic.create(
-                          lsp.Range.create(
-                            document.positionAt(whereProp.key.start),
-                            document.positionAt(whereProp.key.end)
-                          ),
-                          `'${whereAttr}' is not a valid attribute of model '${effectiveModelName}'. Valid attributes: ${Object.keys(model.attributes || {}).join(', ')}`,
-                          lsp.DiagnosticSeverity.Error,
-                          'sails-lsp'
-                        )
-                      )
-                    }
-                  }
+                  validateCriteriaAttributes(
+                    prop.value,
+                    model,
+                    document,
+                    diagnostics,
+                    effectiveModelName
+                  )
                   continue
                 }
                 if (

@@ -1,4 +1,6 @@
 const lsp = require('vscode-languageserver/node')
+const acorn = require('acorn')
+const walk = require('acorn-walk')
 
 module.exports = function validateActionExist(document, typeMap) {
   const diagnostics = []
@@ -28,23 +30,60 @@ module.exports = function validateActionExist(document, typeMap) {
 
 function extractActionInfo(document) {
   const text = document.getText()
-  const regex = /(['"])(.+?)\1\s*:\s*(?:{?\s*action\s*:\s*)?(['"])(.+?)\3/g
   const actions = []
-  let match
 
-  while ((match = regex.exec(text)) !== null) {
-    const action = match[4]
-    const actionStart = match.index + match[0].lastIndexOf(action)
-    const actionEnd = actionStart + action.length
-
-    actions.push({
-      action,
-      range: lsp.Range.create(
-        document.positionAt(actionStart),
-        document.positionAt(actionEnd)
-      )
+  try {
+    const ast = acorn.parse(text, {
+      ecmaVersion: 'latest',
+      sourceType: 'module'
     })
-  }
+
+    walk.simple(ast, {
+      Property(node) {
+        const propertyKey = node.key?.value || node.key?.name
+
+        if (
+          propertyKey === 'action' &&
+          node.value?.type === 'Literal' &&
+          typeof node.value.value === 'string'
+        ) {
+          const actionName = node.value.value
+          actions.push({
+            action: actionName,
+            range: lsp.Range.create(
+              document.positionAt(node.value.start),
+              document.positionAt(node.value.end)
+            )
+          })
+        } else if (
+          typeof propertyKey === 'string' &&
+          (propertyKey.includes('GET') ||
+            propertyKey.includes('POST') ||
+            propertyKey.includes('PUT') ||
+            propertyKey.includes('PATCH') ||
+            propertyKey.includes('DELETE') ||
+            propertyKey.includes('/')) &&
+          node.value?.type === 'Literal' &&
+          typeof node.value.value === 'string'
+        ) {
+          const actionName = node.value.value
+          if (
+            !actionName.startsWith('/') &&
+            !actionName.startsWith('http://') &&
+            !actionName.startsWith('https://')
+          ) {
+            actions.push({
+              action: actionName,
+              range: lsp.Range.create(
+                document.positionAt(node.value.start),
+                document.positionAt(node.value.end)
+              )
+            })
+          }
+        }
+      }
+    })
+  } catch (error) {}
 
   return actions
 }

@@ -100,7 +100,7 @@ connection.onDefinition(async (params) => {
     policyDefinition,
     helperDefinition,
     modelDefinition
-  ].filter(Boolean)
+  ].filter((def) => def && (Array.isArray(def) ? def.length > 0 : true))
   return definitions
 })
 
