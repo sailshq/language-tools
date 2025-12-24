@@ -49,9 +49,10 @@ module.exports = function validateRequiredHelperInput(document, typeMap) {
           for (const [inputKey, inputDef] of Object.entries(
             helperInfo.inputs
           )) {
+            const requiredValue =
+              inputDef?.value?.required?.value ?? inputDef?.required
             const isRequired =
-              inputDef &&
-              (inputDef.required === true || inputDef.required === 'true')
+              requiredValue === true || requiredValue === 'true'
             if (isRequired && !providedKeys.has(inputKey)) {
               diagnostics.push(
                 lsp.Diagnostic.create(
