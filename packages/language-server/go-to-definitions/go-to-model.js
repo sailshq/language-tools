@@ -25,12 +25,13 @@ module.exports = async function goToModel(document, position, typeMap) {
       const model = typeMap.models?.[modelName]
       if (!model?.path) return null
 
+      const targetLine = model.attributesLine ? model.attributesLine - 1 : 0
       const uri = `file://${model.path}`
       return lsp.LocationLink.create(
         uri,
-        lsp.Range.create(0, 0, 0, 0), // target range (usually top of file)
-        lsp.Range.create(0, 0, 0, 0), // target selection range
-        lsp.Range.create(document.positionAt(start), document.positionAt(end)) // origin range
+        lsp.Range.create(targetLine, 0, targetLine, 0),
+        lsp.Range.create(targetLine, 0, targetLine, 0),
+        lsp.Range.create(document.positionAt(start), document.positionAt(end))
       )
     }
   }
