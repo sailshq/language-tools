@@ -356,7 +356,7 @@ module.exports = function modelAttributesCompletion(
               }
             }
 
-            // If it's a modifier (or/and/not), check inside the array at any level
+            // If it's a modifier (or/and/not), check inside the array or object at any level
             if (WATERLINE_MODIFIERS.includes(keyName)) {
               if (
                 prop.value &&
@@ -368,6 +368,8 @@ module.exports = function modelAttributesCompletion(
                     if (checkObjectForCursor(el, true)) return true
                   }
                 }
+              } else if (prop.value && prop.value.type === 'ObjectExpression') {
+                if (checkObjectForCursor(prop.value, true)) return true
               }
             }
 

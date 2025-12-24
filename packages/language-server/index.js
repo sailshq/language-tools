@@ -12,6 +12,7 @@ const goToPage = require('./go-to-definitions/go-to-page')
 const goToPolicy = require('./go-to-definitions/go-to-policy')
 const goToHelper = require('./go-to-definitions/go-to-helper')
 const goToModel = require('./go-to-definitions/go-to-model')
+const goToModelAttribute = require('./go-to-definitions/go-to-model-attribute')
 
 // Completions
 const actionsCompletion = require('./completions/actions-completion')
@@ -83,14 +84,16 @@ connection.onDefinition(async (params) => {
     pageDefinition,
     policyDefinition,
     helperDefinition,
-    modelDefinition
+    modelDefinition,
+    modelAttributeDefinition
   ] = await Promise.all([
     goToAction(document, params.position, typeMap),
     goToView(document, params.position, typeMap),
     goToPage(document, params.position, typeMap),
     goToPolicy(document, params.position, typeMap),
     goToHelper(document, params.position, typeMap),
-    goToModel(document, params.position, typeMap)
+    goToModel(document, params.position, typeMap),
+    goToModelAttribute(document, params.position, typeMap)
   ])
 
   const definitions = [
@@ -99,7 +102,8 @@ connection.onDefinition(async (params) => {
     pageDefinition,
     policyDefinition,
     helperDefinition,
-    modelDefinition
+    modelDefinition,
+    modelAttributeDefinition
   ].filter((def) => def && (Array.isArray(def) ? def.length > 0 : true))
   return definitions
 })
