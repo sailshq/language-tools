@@ -289,6 +289,7 @@ class SailsParser {
       const name = file.slice(0, -3)
       const modelPath = path.join(dir, file)
       let attributes = {}
+      let attributesLine = 0
       const context = this
 
       try {
@@ -317,6 +318,7 @@ class SailsParser {
                     true,
                     code
                   )
+                  attributesLine = context.#getLineNumber(prop.key.start, code)
                 }
               }
             }
@@ -330,6 +332,10 @@ class SailsParser {
               node.right.type === 'ObjectExpression'
             ) {
               attributes = context.#extractObjectLiteral(node.right, true, code)
+              attributesLine = context.#getLineNumber(
+                node.left.property.start,
+                code
+              )
             }
           },
           ExportDefaultDeclaration(node) {
@@ -344,6 +350,7 @@ class SailsParser {
                     true,
                     code
                   )
+                  attributesLine = context.#getLineNumber(prop.key.start, code)
                 }
               }
             }
@@ -372,6 +379,7 @@ class SailsParser {
       }
       models[name] = {
         path: modelPath,
+        attributesLine,
         methods: STATIC_METHODS,
         chainableMethods: CHAINABLE_METHODS,
         attributes: mergedAttributes
