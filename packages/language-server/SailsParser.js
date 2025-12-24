@@ -516,7 +516,11 @@ class SailsParser {
                         prop.key.name === 'inputs' &&
                         prop.value.type === 'ObjectExpression'
                       ) {
-                        inputs = context.#extractObjectLiteral(prop.value)
+                        inputs = context.#extractObjectLiteral(
+                          prop.value,
+                          true,
+                          content
+                        )
                       }
                       if (
                         prop.key &&
@@ -547,7 +551,11 @@ class SailsParser {
                         prop.key.name === 'inputs' &&
                         prop.value.type === 'ObjectExpression'
                       ) {
-                        inputs = context.#extractObjectLiteral(prop.value)
+                        inputs = context.#extractObjectLiteral(
+                          prop.value,
+                          true,
+                          content
+                        )
                       }
                       if (
                         prop.key &&
@@ -573,14 +581,13 @@ class SailsParser {
               const match = content.match(/inputs\s*:\s*\{([\s\S]*?)\n\s*\}/m)
               if (match) {
                 try {
-                  // Try to parse as JS object
                   const fakeObj = `({${match[1]}})`
                   const ast = acorn.parse(fakeObj, { ecmaVersion: 'latest' })
                   let obj = {}
                   walk.simple(ast, {
                     ObjectExpression(node) {
                       if (!obj || Object.keys(obj).length === 0) {
-                        obj = context.#extractObjectLiteral(node)
+                        obj = context.#extractObjectLiteral(node, true, content)
                       }
                     }
                   })
