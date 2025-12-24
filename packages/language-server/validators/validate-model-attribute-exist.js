@@ -61,6 +61,14 @@ function validateCriteriaAttributes(
             )
           }
         }
+      } else if (prop.value && prop.value.type === 'ObjectExpression') {
+        validateCriteriaAttributes(
+          prop.value,
+          model,
+          document,
+          diagnostics,
+          effectiveModelName
+        )
       }
       continue
     }
