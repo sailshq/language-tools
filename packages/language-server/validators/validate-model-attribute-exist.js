@@ -61,6 +61,14 @@ function validateCriteriaAttributes(
             )
           }
         }
+      } else if (prop.value && prop.value.type === 'ObjectExpression') {
+        validateCriteriaAttributes(
+          prop.value,
+          model,
+          document,
+          diagnostics,
+          effectiveModelName
+        )
       }
       continue
     }
@@ -454,6 +462,23 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                     diagnostics,
                     effectiveModelName
                   )
+                  continue
+                } else if (
+                  WATERLINE_MODIFIERS.includes(attribute) &&
+                  prop.value &&
+                  prop.value.type === 'ArrayExpression'
+                ) {
+                  for (const el of prop.value.elements) {
+                    if (el && el.type === 'ObjectExpression') {
+                      validateCriteriaAttributes(
+                        el,
+                        model,
+                        document,
+                        diagnostics,
+                        effectiveModelName
+                      )
+                    }
+                  }
                   continue
                 }
                 if (

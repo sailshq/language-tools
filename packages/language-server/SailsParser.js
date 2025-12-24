@@ -229,7 +229,11 @@ class SailsParser {
                   prop.key?.name === 'attributes' &&
                   prop.value?.type === 'ObjectExpression'
                 ) {
-                  defaultAttributes = context.#extractObjectLiteral(prop.value)
+                  defaultAttributes = context.#extractObjectLiteral(
+                    prop.value,
+                    true,
+                    configCode
+                  )
                 }
                 if (
                   prop.key?.name === 'models' &&
@@ -241,7 +245,9 @@ class SailsParser {
                       inner.value?.type === 'ObjectExpression'
                     ) {
                       defaultAttributes = context.#extractObjectLiteral(
-                        inner.value
+                        inner.value,
+                        true,
+                        configCode
                       )
                     }
                   }
@@ -262,7 +268,11 @@ class SailsParser {
                   prop.key?.name === 'attributes' &&
                   prop.value?.type === 'ObjectExpression'
                 ) {
-                  defaultAttributes = context.#extractObjectLiteral(prop.value)
+                  defaultAttributes = context.#extractObjectLiteral(
+                    prop.value,
+                    true,
+                    configCode
+                  )
                 }
               }
             }
@@ -279,6 +289,7 @@ class SailsParser {
       const name = file.slice(0, -3)
       const modelPath = path.join(dir, file)
       let attributes = {}
+      let attributesLine = 0
       const context = this
 
       try {
@@ -302,7 +313,12 @@ class SailsParser {
                   prop.key?.name === 'attributes' &&
                   prop.value?.type === 'ObjectExpression'
                 ) {
-                  attributes = context.#extractObjectLiteral(prop.value)
+                  attributes = context.#extractObjectLiteral(
+                    prop.value,
+                    true,
+                    code
+                  )
+                  attributesLine = context.#getLineNumber(prop.key.start, code)
                 }
               }
             }
@@ -315,7 +331,11 @@ class SailsParser {
               node.left.property.name === 'attributes' &&
               node.right.type === 'ObjectExpression'
             ) {
-              attributes = context.#extractObjectLiteral(node.right)
+              attributes = context.#extractObjectLiteral(node.right, true, code)
+              attributesLine = context.#getLineNumber(
+                node.left.property.start,
+                code
+              )
             }
           },
           ExportDefaultDeclaration(node) {
@@ -325,7 +345,12 @@ class SailsParser {
                   prop.key?.name === 'attributes' &&
                   prop.value?.type === 'ObjectExpression'
                 ) {
-                  attributes = context.#extractObjectLiteral(prop.value)
+                  attributes = context.#extractObjectLiteral(
+                    prop.value,
+                    true,
+                    code
+                  )
+                  attributesLine = context.#getLineNumber(prop.key.start, code)
                 }
               }
             }
@@ -339,13 +364,22 @@ class SailsParser {
       // Merge defaultAttributes first, then model attributes (model overrides default)
       const mergedAttributes = {}
       for (const key of Object.keys(defaultAttributes)) {
-        mergedAttributes[key] = defaultAttributes[key]
+        const attr = defaultAttributes[key]
+        mergedAttributes[key] = {
+          ...attr,
+          path: modelsConfigPath
+        }
       }
       for (const key of Object.keys(attributes)) {
-        mergedAttributes[key] = attributes[key]
+        const attr = attributes[key]
+        mergedAttributes[key] = {
+          ...attr,
+          path: modelPath
+        }
       }
       models[name] = {
         path: modelPath,
+        attributesLine,
         methods: STATIC_METHODS,
         chainableMethods: CHAINABLE_METHODS,
         attributes: mergedAttributes
@@ -482,7 +516,11 @@ class SailsParser {
                         prop.key.name === 'inputs' &&
                         prop.value.type === 'ObjectExpression'
                       ) {
-                        inputs = context.#extractObjectLiteral(prop.value)
+                        inputs = context.#extractObjectLiteral(
+                          prop.value,
+                          true,
+                          content
+                        )
                       }
                       if (
                         prop.key &&
@@ -513,7 +551,11 @@ class SailsParser {
                         prop.key.name === 'inputs' &&
                         prop.value.type === 'ObjectExpression'
                       ) {
-                        inputs = context.#extractObjectLiteral(prop.value)
+                        inputs = context.#extractObjectLiteral(
+                          prop.value,
+                          true,
+                          content
+                        )
                       }
                       if (
                         prop.key &&
@@ -539,14 +581,13 @@ class SailsParser {
               const match = content.match(/inputs\s*:\s*\{([\s\S]*?)\n\s*\}/m)
               if (match) {
                 try {
-                  // Try to parse as JS object
                   const fakeObj = `({${match[1]}})`
                   const ast = acorn.parse(fakeObj, { ecmaVersion: 'latest' })
                   let obj = {}
                   walk.simple(ast, {
                     ObjectExpression(node) {
                       if (!obj || Object.keys(obj).length === 0) {
-                        obj = context.#extractObjectLiteral(node)
+                        obj = context.#extractObjectLiteral(node, true, content)
                       }
                     }
                   })
@@ -574,7 +615,7 @@ class SailsParser {
     return helpers
   }
 
-  #extractObjectLiteral(node) {
+  #extractObjectLiteral(node, withLineNumbers = false, sourceCode = null) {
     if (node.type !== 'ObjectExpression') return undefined
     const obj = {}
     for (const prop of node.properties) {
@@ -583,11 +624,15 @@ class SailsParser {
           prop.key.type === 'Identifier' ? prop.key.name : prop.key.value
         let value
         if (prop.value.type === 'ObjectExpression') {
-          value = this.#extractObjectLiteral(prop.value)
+          value = this.#extractObjectLiteral(
+            prop.value,
+            withLineNumbers,
+            sourceCode
+          )
         } else if (prop.value.type === 'ArrayExpression') {
           value = prop.value.elements.map((el) =>
             el.type === 'ObjectExpression'
-              ? this.#extractObjectLiteral(el)
+              ? this.#extractObjectLiteral(el, withLineNumbers, sourceCode)
               : el.type === 'Literal'
                 ? el.value
                 : el.type === 'Identifier'
@@ -601,10 +646,19 @@ class SailsParser {
         } else {
           value = undefined
         }
-        obj[key] = value
+        if (withLineNumbers && sourceCode) {
+          const line = this.#getLineNumber(prop.key.start, sourceCode)
+          obj[key] = { value, line }
+        } else {
+          obj[key] = value
+        }
       }
     }
     return obj
+  }
+  #getLineNumber(offset, sourceCode) {
+    const lines = sourceCode.substring(0, offset).split('\n')
+    return lines.length
   }
   #getDataTypes() {
     return [
