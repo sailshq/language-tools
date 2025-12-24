@@ -455,6 +455,23 @@ module.exports = function validateModelAttributeExist(document, typeMap) {
                     effectiveModelName
                   )
                   continue
+                } else if (
+                  WATERLINE_MODIFIERS.includes(attribute) &&
+                  prop.value &&
+                  prop.value.type === 'ArrayExpression'
+                ) {
+                  for (const el of prop.value.elements) {
+                    if (el && el.type === 'ObjectExpression') {
+                      validateCriteriaAttributes(
+                        el,
+                        model,
+                        document,
+                        diagnostics,
+                        effectiveModelName
+                      )
+                    }
+                  }
+                  continue
                 }
                 if (
                   (attribute === 'select' || attribute === 'omit') &&

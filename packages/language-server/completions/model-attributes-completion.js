@@ -274,6 +274,7 @@ module.exports = function modelAttributesCompletion(
           let hasAttributes = false
           let hasQueryOptions = false
           let hasOperators = false
+          let hasModifiers = false
           for (const prop of objNode.properties) {
             if (!prop.key) continue
             const keyName = prop.key.name || prop.key.value
@@ -281,7 +282,9 @@ module.exports = function modelAttributesCompletion(
               hasQueryOptions = true
             } else if (WATERLINE_OPERATORS.includes(keyName)) {
               hasOperators = true
-            } else if (!WATERLINE_MODIFIERS.includes(keyName)) {
+            } else if (WATERLINE_MODIFIERS.includes(keyName)) {
+              hasModifiers = true
+            } else {
               // Check if it's a valid attribute
               const model = getModelByName(astModelName)
               if (
@@ -303,12 +306,13 @@ module.exports = function modelAttributesCompletion(
           // - If we have query options (like where, select, limit), this is a query options object
           // - If we're explicitly inside a where clause (isInsideWhere), show attributes
           // - If we have attributes but no query options, it's a criteria object
+          // - Modifiers at top level don't make this a criteria object (only inside them)
           const isCriteriaMode =
             isInsideWhere || (hasAttributes && !hasQueryOptions)
 
-          // If we have query options and we're not inside where, this is NOT a criteria context
+          // If we have query options or modifiers and we're not inside where, this is NOT a criteria context
           // Don't show attribute completions at the query options level
-          if (hasQueryOptions && !isInsideWhere) {
+          if ((hasQueryOptions || hasModifiers) && !isInsideWhere) {
             // But we still need to check if we're typing a new key after existing query options
             // Check if cursor is in a position to type a new key
             const isTypingNewKey =
@@ -352,7 +356,7 @@ module.exports = function modelAttributesCompletion(
               }
             }
 
-            // If it's a modifier (or/and/not), check inside the array
+            // If it's a modifier (or/and/not), check inside the array at any level
             if (WATERLINE_MODIFIERS.includes(keyName)) {
               if (
                 prop.value &&
