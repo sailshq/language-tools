@@ -8,16 +8,18 @@ const lsp = require('vscode-languageserver/node')
 module.exports = function validateModelExist(document, typeMap) {
   const diagnostics = []
   const text = document.getText()
-  // Build a lowercased model map for robust case-insensitive lookup
-  const modelMap = {}
-  if (typeMap.models) {
-    for (const key of Object.keys(typeMap.models)) {
-      modelMap[key.toLowerCase()] = typeMap.models[key]
-    }
+  const models = typeMap.models || {}
+  const lowercasedModelMap = {}
+  for (const key of Object.keys(models)) {
+    lowercasedModelMap[key.toLowerCase()] = models[key]
   }
   function modelExists(name) {
     if (!name) return false
-    return !!modelMap[name.toLowerCase()]
+    return !!models[name]
+  }
+  function modelExistsLowercased(name) {
+    if (!name) return false
+    return !!lowercasedModelMap[name.toLowerCase()]
   }
 
   const knownGlobals = [
@@ -30,9 +32,9 @@ module.exports = function validateModelExist(document, typeMap) {
     'process'
   ]
 
-  // User.find() or User.create() etc
+  // User.find() or User.create() etc (only PascalCase identifiers)
   const modelCallRegex =
-    /\b([A-Za-z0-9_]+)\s*\.(?:find|findOne|create|createEach|update|destroy|count|sum|where|findOrCreate)\s*\(/g
+    /\b([A-Z][A-Za-z0-9_]*)\s*\.(?:find|findOne|create|createEach|update|destroy|count|sum|where|findOrCreate)\s*\(/g
   let match
   while ((match = modelCallRegex.exec(text)) !== null) {
     const modelName = match[1]
@@ -58,7 +60,7 @@ module.exports = function validateModelExist(document, typeMap) {
     /sails\.models\.([A-Za-z0-9_]+)\s*\.(?:find|findOne|create|createEach|update|destroy|count|sum|where|findOrCreate)\s*\(/g
   while ((match = sailsModelCallRegex.exec(text)) !== null) {
     const modelName = match[1]
-    if (!modelExists(modelName)) {
+    if (!modelExistsLowercased(modelName)) {
       diagnostics.push(
         lsp.Diagnostic.create(
           lsp.Range.create(
