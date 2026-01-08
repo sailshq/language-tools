@@ -2,6 +2,12 @@ const lsp = require('vscode-languageserver/node')
 
 module.exports = function validatePageExist(document, typeMap) {
   const diagnostics = []
+  const documentUri = document.uri
+
+  // Only validate files in api/ where Inertia pages are referenced
+  if (!documentUri.includes('/api/')) {
+    return diagnostics
+  }
 
   const pages = extractPageReferences(document)
   for (const { page, range } of pages) {
