@@ -7,6 +7,13 @@ const lsp = require('vscode-languageserver/node')
  */
 module.exports = function validateModelExist(document, typeMap) {
   const diagnostics = []
+  const documentUri = document.uri
+
+  // Only validate files in backend directories where models are accessible
+  if (!documentUri.includes('/api/') && !documentUri.includes('/scripts/')) {
+    return diagnostics
+  }
+
   const text = document.getText()
   const models = typeMap.models || {}
   const lowercasedModelMap = {}
