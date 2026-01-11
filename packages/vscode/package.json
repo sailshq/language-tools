@@ -75,6 +75,24 @@
         "scopeName": "text.html.ejs",
         "path": "./syntaxes/ejs.tmLanguage.json"
       }
+    ],
+    "commands": [
+      {
+        "command": "sails.generateHelper",
+        "title": "Sails: Generate Helper"
+      },
+      {
+        "command": "sails.generateAction",
+        "title": "Sails: Generate Action"
+      },
+      {
+        "command": "sails.generateModel",
+        "title": "Sails: Generate Model"
+      },
+      {
+        "command": "sails.generateHook",
+        "title": "Sails: Generate Hook"
+      }
     ]
   },
   "repository": {
