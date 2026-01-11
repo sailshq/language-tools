@@ -49,17 +49,17 @@ module.exports = function validateModelExist(document, typeMap) {
       continue
     }
     if (!modelExists(modelName)) {
-      diagnostics.push(
-        lsp.Diagnostic.create(
-          lsp.Range.create(
-            document.positionAt(match.index),
-            document.positionAt(match.index + modelName.length)
-          ),
-          `Model '${modelName}' not found. Make sure it exists under your api/models directory.`,
-          lsp.DiagnosticSeverity.Error,
-          'sails-lsp'
-        )
+      const diagnostic = lsp.Diagnostic.create(
+        lsp.Range.create(
+          document.positionAt(match.index),
+          document.positionAt(match.index + modelName.length)
+        ),
+        `Model '${modelName}' not found. Make sure it exists under your api/models directory.`,
+        lsp.DiagnosticSeverity.Error,
+        'model-not-found'
       )
+      diagnostic.data = { modelName }
+      diagnostics.push(diagnostic)
     }
   }
   // sails.models.user.find() or sails.models.User.find()
@@ -68,19 +68,19 @@ module.exports = function validateModelExist(document, typeMap) {
   while ((match = sailsModelCallRegex.exec(text)) !== null) {
     const modelName = match[1]
     if (!modelExistsLowercased(modelName)) {
-      diagnostics.push(
-        lsp.Diagnostic.create(
-          lsp.Range.create(
-            document.positionAt(match.index + 'sails.models.'.length),
-            document.positionAt(
-              match.index + 'sails.models.'.length + modelName.length
-            )
-          ),
-          `Model '${modelName}' does not exist in this Sails project.`,
-          lsp.DiagnosticSeverity.Error,
-          'sails-lsp'
-        )
+      const diagnostic = lsp.Diagnostic.create(
+        lsp.Range.create(
+          document.positionAt(match.index + 'sails.models.'.length),
+          document.positionAt(
+            match.index + 'sails.models.'.length + modelName.length
+          )
+        ),
+        `Model '${modelName}' does not exist in this Sails project.`,
+        lsp.DiagnosticSeverity.Error,
+        'model-not-found'
       )
+      diagnostic.data = { modelName }
+      diagnostics.push(diagnostic)
     }
   }
   return diagnostics

@@ -1,4 +1,4 @@
-const handlers = [require('./generate-action')]
+const handlers = [require('./generate-action'), require('./generate-model')]
 
 module.exports = {
   getCommands() {
