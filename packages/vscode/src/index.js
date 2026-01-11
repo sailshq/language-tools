@@ -25,8 +25,8 @@ const generators = [
   {
     command: 'sails.generateHook',
     type: 'hook',
-    prompt: 'Enter hook name (e.g., custom-hook)',
-    placeholder: 'custom-hook'
+    prompt: 'Enter hook name (e.g., custom)',
+    placeholder: 'custom'
   }
 ]
 
@@ -73,36 +73,6 @@ function activate(context) {
     )
     console.error('Language client start error:', error)
   })
-
-  // Register generator commands for Command Palette
-  for (const gen of generators) {
-    context.subscriptions.push(
-      vscode.commands.registerCommand(gen.command, async (name) => {
-        // If name is provided (from quick fix), use it directly
-        // Otherwise, prompt the user for input
-        if (!name) {
-          name = await vscode.window.showInputBox({
-            prompt: gen.prompt,
-            placeHolder: gen.placeholder,
-            validateInput: (value) => {
-              if (!value || !value.trim()) {
-                return `Please enter a ${gen.type} name`
-              }
-              return null
-            }
-          })
-        }
-
-        if (!name) return // User cancelled
-
-        // Send command to language server
-        await client.sendRequest('workspace/executeCommand', {
-          command: gen.command,
-          arguments: [name]
-        })
-      })
-    )
-  }
   context.subscriptions.push(
     vscode.languages.registerDefinitionProvider(
       { language: 'javascript', pattern: '**/config/routes.js' },
