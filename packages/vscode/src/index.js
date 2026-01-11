@@ -27,6 +27,18 @@ const generators = [
     type: 'hook',
     prompt: 'Enter hook name (e.g., custom-hook)',
     placeholder: 'custom-hook'
+  },
+  {
+    command: 'sails.generateResponse',
+    type: 'response',
+    prompt: 'Enter response name (e.g., notFound or serverError)',
+    placeholder: 'notFound'
+  },
+  {
+    command: 'sails.generateAdapter',
+    type: 'adapter',
+    prompt: 'Enter adapter name (e.g., my-custom-adapter)',
+    placeholder: 'my-custom-adapter'
   }
 ]
 
