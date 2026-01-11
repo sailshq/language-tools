@@ -1,4 +1,11 @@
-const handlers = [require('./generate-action'), require('./generate-model')]
+const handlers = [
+  require('./generate-action'),
+  require('./generate-model'),
+  require('./generate-helper'),
+  require('./generate-hook'),
+  require('./generate-response'),
+  require('./generate-adapter')
+]
 
 module.exports = {
   getCommands() {

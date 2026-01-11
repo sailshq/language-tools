@@ -3,6 +3,33 @@ const lsp = require('vscode-languageclient/node')
 
 let client
 
+const generators = [
+  {
+    command: 'sails.generateHelper',
+    type: 'helper',
+    prompt: 'Enter helper name (e.g., mail/send or formatCurrency)',
+    placeholder: 'mail/send'
+  },
+  {
+    command: 'sails.generateAction',
+    type: 'action',
+    prompt: 'Enter action name (e.g., user/login or dashboard/view)',
+    placeholder: 'user/login'
+  },
+  {
+    command: 'sails.generateModel',
+    type: 'model',
+    prompt: 'Enter model name (e.g., User or BlogPost)',
+    placeholder: 'User'
+  },
+  {
+    command: 'sails.generateHook',
+    type: 'hook',
+    prompt: 'Enter hook name (e.g., custom)',
+    placeholder: 'custom'
+  }
+]
+
 function activate(context) {
   const serverModule = vscode.Uri.joinPath(context.extensionUri, 'server.js')
 
