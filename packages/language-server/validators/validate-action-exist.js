@@ -15,14 +15,14 @@ module.exports = function validateActionExist(document, typeMap) {
     )
 
     if (!routeExists) {
-      diagnostics.push(
-        lsp.Diagnostic.create(
-          range,
-          `'${action}' action does not exist. Please check the name or create it.`,
-          lsp.DiagnosticSeverity.Error,
-          'sails-lsp'
-        )
+      const diagnostic = lsp.Diagnostic.create(
+        range,
+        `'${action}' action does not exist. Please check the name or create it.`,
+        lsp.DiagnosticSeverity.Error,
+        'action-not-found'
       )
+      diagnostic.data = { actionName: action }
+      diagnostics.push(diagnostic)
     }
   }
   return diagnostics

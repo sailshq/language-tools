@@ -1,9 +1,15 @@
 const lsp = require('vscode-languageserver/node')
 const TextDocument = require('vscode-languageserver-textdocument').TextDocument
+const { exec } = require('child_process')
+const { promisify } = require('util')
+const execAsync = promisify(exec)
 const SailsParser = require('./SailsParser')
 
 // Validators
 const validateDocument = require('./validators/validate-document')
+
+// Code Actions
+const codeActions = require('./code-actions')
 
 // Go-to definitions
 const goToAction = require('./go-to-definitions/go-to-action')
@@ -50,6 +56,12 @@ connection.onInitialize(async (params) => {
       definitionProvider: true,
       completionProvider: {
         triggerCharacters: ['"', "'", '.', '{', ',', ' ', '\n']
+      },
+      codeActionProvider: {
+        codeActionKinds: [lsp.CodeActionKind.QuickFix]
+      },
+      executeCommandProvider: {
+        commands: codeActions.getCommands()
       }
     }
   }
@@ -200,6 +212,16 @@ connection.onCompletion(async (params) => {
   }
 
   return null
+})
+
+connection.onCodeAction((params) => codeActions.getCodeActions(params))
+
+connection.onExecuteCommand(async (params) => {
+  await codeActions.executeCommand(params, {
+    rootDir: sailsParser.rootDir,
+    execAsync,
+    connection
+  })
 })
 
 documents.listen(connection)
