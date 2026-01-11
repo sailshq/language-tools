@@ -2,6 +2,11 @@ const lsp = require('vscode-languageserver/node')
 
 // Only allow alphanumeric, hyphens, underscores, and forward slashes
 const SAFE_ACTION_NAME = /^[a-zA-Z0-9/_-]+$/
+const COMMAND_TIMEOUT = 30000
+
+function isValidActionName(name) {
+  return name && SAFE_ACTION_NAME.test(name)
+}
 
 module.exports = {
   diagnosticCode: 'action-not-found',
@@ -9,7 +14,7 @@ module.exports = {
 
   createCodeAction(diagnostic) {
     const actionName = diagnostic.data?.actionName
-    if (!actionName || !SAFE_ACTION_NAME.test(actionName)) return null
+    if (!isValidActionName(actionName)) return null
 
     return {
       title: `Generate action '${actionName}'`,
@@ -26,7 +31,7 @@ module.exports = {
 
   async executeCommand(args, { rootDir, execAsync, connection }) {
     const actionName = args[0]
-    if (!actionName || !SAFE_ACTION_NAME.test(actionName)) return
+    if (!isValidActionName(actionName)) return
 
     if (!rootDir) {
       connection.window.showErrorMessage(
@@ -40,7 +45,8 @@ module.exports = {
         `Generating action '${actionName}'...`
       )
       await execAsync(`npx sails generate action ${actionName}`, {
-        cwd: rootDir
+        cwd: rootDir,
+        timeout: COMMAND_TIMEOUT
       })
       connection.window.showInformationMessage(
         `Action '${actionName}' generated successfully.`
