@@ -55,6 +55,38 @@ connection.onInitialize(async (params) => {
   }
 })
 
+connection.onInitialized(() => {
+  // Register for file create/delete notifications in api/ and config/ directories
+  connection.client.register(lsp.DidChangeWatchedFilesNotification.type, {
+    watchers: [
+      { globPattern: '**/api/**/*.js' },
+      { globPattern: '**/api/**/*.ejs' },
+      { globPattern: '**/config/**/*.js' },
+      { globPattern: '**/views/**/*.ejs' },
+      { globPattern: '**/assets/js/pages/**/*.{vue,js,ts,jsx,tsx,svelte,html}' }
+    ]
+  })
+})
+
+connection.onDidChangeWatchedFiles(async (params) => {
+  // Check if any relevant files were created or deleted
+  const hasRelevantChange = params.changes.some(
+    (change) =>
+      change.type === lsp.FileChangeType.Created ||
+      change.type === lsp.FileChangeType.Deleted
+  )
+
+  if (hasRelevantChange) {
+    typeMap = await sailsParser.buildTypeMap()
+    connection.console.log('Type map updated due to file create/delete.')
+
+    // Re-validate all open documents
+    for (const document of documents.all()) {
+      validateDocument(connection, document, typeMap)
+    }
+  }
+})
+
 documents.onDidOpen((open) => {
   if (typeMap) {
     validateDocument(connection, open.document, typeMap)
