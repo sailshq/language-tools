@@ -5,7 +5,7 @@ const walk = require('acorn-walk')
 module.exports = function validateActionExist(document, typeMap) {
   const diagnostics = []
 
-  if (!document.uri.endsWith('routes.js')) return diagnostics
+  if (!document.uri.endsWith('config/routes.js')) return diagnostics
   const actions = extractActionInfo(document)
 
   for (const { action, range } of actions) {
