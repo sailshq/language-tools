@@ -1,9 +1,15 @@
 const lsp = require('vscode-languageserver/node')
 const TextDocument = require('vscode-languageserver-textdocument').TextDocument
+const { exec } = require('child_process')
+const { promisify } = require('util')
+const execAsync = promisify(exec)
 const SailsParser = require('./SailsParser')
 
 // Validators
 const validateDocument = require('./validators/validate-document')
+
+// Code Actions
+const codeActions = require('./code-actions')
 
 // Go-to definitions
 const goToAction = require('./go-to-definitions/go-to-action')
@@ -50,7 +56,45 @@ connection.onInitialize(async (params) => {
       definitionProvider: true,
       completionProvider: {
         triggerCharacters: ['"', "'", '.', '{', ',', ' ', '\n']
+      },
+      codeActionProvider: {
+        codeActionKinds: [lsp.CodeActionKind.QuickFix]
+      },
+      executeCommandProvider: {
+        commands: codeActions.getCommands()
       }
+    }
+  }
+})
+
+connection.onInitialized(() => {
+  // Register for file create/delete notifications in api/ and config/ directories
+  connection.client.register(lsp.DidChangeWatchedFilesNotification.type, {
+    watchers: [
+      { globPattern: '**/api/**/*.js' },
+      { globPattern: '**/api/**/*.ejs' },
+      { globPattern: '**/config/**/*.js' },
+      { globPattern: '**/views/**/*.ejs' },
+      { globPattern: '**/assets/js/pages/**/*.{vue,js,ts,jsx,tsx,svelte,html}' }
+    ]
+  })
+})
+
+connection.onDidChangeWatchedFiles(async (params) => {
+  // Check if any relevant files were created or deleted
+  const hasRelevantChange = params.changes.some(
+    (change) =>
+      change.type === lsp.FileChangeType.Created ||
+      change.type === lsp.FileChangeType.Deleted
+  )
+
+  if (hasRelevantChange) {
+    typeMap = await sailsParser.buildTypeMap()
+    connection.console.log('Type map updated due to file create/delete.')
+
+    // Re-validate all open documents
+    for (const document of documents.all()) {
+      validateDocument(connection, document, typeMap)
     }
   }
 })
@@ -168,6 +212,16 @@ connection.onCompletion(async (params) => {
   }
 
   return null
+})
+
+connection.onCodeAction((params) => codeActions.getCodeActions(params))
+
+connection.onExecuteCommand(async (params) => {
+  await codeActions.executeCommand(params, {
+    rootDir: sailsParser.rootDir,
+    execAsync,
+    connection
+  })
 })
 
 documents.listen(connection)

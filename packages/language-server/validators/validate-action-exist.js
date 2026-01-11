@@ -5,24 +5,30 @@ const walk = require('acorn-walk')
 module.exports = function validateActionExist(document, typeMap) {
   const diagnostics = []
 
-  if (!document.uri.endsWith('routes.js')) return diagnostics
+  if (!document.uri.endsWith('config/routes.js')) return diagnostics
+
   const actions = extractActionInfo(document)
 
   for (const { action, range } of actions) {
     if (isUrlOrRedirect(action)) continue
-    const routeExists = Object.values(typeMap.routes || {}).some(
+
+    // Find any route entry that references this action and check if it exists
+    const routeEntry = Object.values(typeMap.routes || {}).find(
       (route) => route.action?.name === action
     )
 
-    if (!routeExists) {
-      diagnostics.push(
-        lsp.Diagnostic.create(
-          range,
-          `'${action}' action does not exist. Please check the name or create it.`,
-          lsp.DiagnosticSeverity.Error,
-          'sails-lsp'
-        )
+    // Action exists if we found a route entry with exists: true
+    // If no route entry found, the action was just added and typeMap is stale,
+    // so we need to check exists flag which was set when typeMap was built
+    if (routeEntry && routeEntry.action?.exists === false) {
+      const diagnostic = lsp.Diagnostic.create(
+        range,
+        `'${action}' action does not exist. Please check the name or create it.`,
+        lsp.DiagnosticSeverity.Error,
+        'action-not-found'
       )
+      diagnostic.data = { actionName: action }
+      diagnostics.push(diagnostic)
     }
   }
   return diagnostics

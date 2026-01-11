@@ -3,6 +3,45 @@ const lsp = require('vscode-languageclient/node')
 
 let client
 
+const generators = [
+  {
+    command: 'sails.generateHelper',
+    type: 'helper',
+    prompt: 'Enter helper name (e.g., mail/send or formatCurrency)',
+    placeholder: 'mail/send'
+  },
+  {
+    command: 'sails.generateAction',
+    type: 'action',
+    prompt: 'Enter action name (e.g., user/login or dashboard/view)',
+    placeholder: 'user/login'
+  },
+  {
+    command: 'sails.generateModel',
+    type: 'model',
+    prompt: 'Enter model name (e.g., User or BlogPost)',
+    placeholder: 'User'
+  },
+  {
+    command: 'sails.generateHook',
+    type: 'hook',
+    prompt: 'Enter hook name (e.g., custom)',
+    placeholder: 'custom'
+  },
+  {
+    command: 'sails.generateResponse',
+    type: 'response',
+    prompt: 'Enter response name (e.g., notFound or serverError)',
+    placeholder: 'notFound'
+  },
+  {
+    command: 'sails.generateAdapter',
+    type: 'adapter',
+    prompt: 'Enter adapter name (e.g., my-custom-adapter)',
+    placeholder: 'my-custom-adapter'
+  }
+]
+
 function activate(context) {
   const serverModule = vscode.Uri.joinPath(context.extensionUri, 'server.js')
 
@@ -26,7 +65,28 @@ function activate(context) {
         pattern: '**/config/routes.js'
       },
       { scheme: 'file', language: 'ejs' }
-    ]
+    ],
+    middleware: {
+      executeCommand: async (command, args, next) => {
+        const gen = generators.find((g) => g.command === command)
+        if (gen && (!args || args.length === 0)) {
+          // Command Palette invocation - prompt for input
+          const name = await vscode.window.showInputBox({
+            prompt: gen.prompt,
+            placeHolder: gen.placeholder,
+            validateInput: (value) => {
+              if (!value || !value.trim()) {
+                return `Please enter a ${gen.type} name`
+              }
+              return null
+            }
+          })
+          if (!name) return // User cancelled
+          return next(command, [name])
+        }
+        return next(command, args)
+      }
+    }
   }
 
   client = new lsp.LanguageClient(
@@ -46,6 +106,7 @@ function activate(context) {
     )
     console.error('Language client start error:', error)
   })
+
   context.subscriptions.push(
     vscode.languages.registerDefinitionProvider(
       { language: 'javascript', pattern: '**/config/routes.js' },
