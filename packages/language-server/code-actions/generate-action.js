@@ -1,12 +1,15 @@
 const lsp = require('vscode-languageserver/node')
 
+// Only allow alphanumeric, hyphens, underscores, and forward slashes
+const SAFE_ACTION_NAME = /^[a-zA-Z0-9/_-]+$/
+
 module.exports = {
   diagnosticCode: 'action-not-found',
   command: 'sails.generateAction',
 
   createCodeAction(diagnostic) {
     const actionName = diagnostic.data?.actionName
-    if (!actionName) return null
+    if (!actionName || !SAFE_ACTION_NAME.test(actionName)) return null
 
     return {
       title: `Generate action '${actionName}'`,
@@ -23,7 +26,7 @@ module.exports = {
 
   async executeCommand(args, { rootDir, execAsync, connection }) {
     const actionName = args[0]
-    if (!actionName) return
+    if (!actionName || !SAFE_ACTION_NAME.test(actionName)) return
 
     if (!rootDir) {
       connection.window.showErrorMessage(
