@@ -41,7 +41,7 @@
     "@rsdoctor/rspack-plugin": "^1.4.0",
     "@rspack/cli": "^1.7.1",
     "@rspack/core": "^1.7.1",
-    "@sailshq/language-server": "^0.5.2",
+    "@sailshq/language-server": "^0.6.0",
     "@types/node": "^22.5.2",
     "@types/vscode": "^1.82.0",
     "@vscode/vsce": "^3.0.0"
