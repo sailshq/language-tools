@@ -3,6 +3,33 @@ const lsp = require('vscode-languageclient/node')
 
 let client
 
+const generators = [
+  {
+    command: 'sails.generateHelper',
+    type: 'helper',
+    prompt: 'Enter helper name (e.g., mail/send or formatCurrency)',
+    placeholder: 'mail/send'
+  },
+  {
+    command: 'sails.generateAction',
+    type: 'action',
+    prompt: 'Enter action name (e.g., user/login or dashboard/view)',
+    placeholder: 'user/login'
+  },
+  {
+    command: 'sails.generateModel',
+    type: 'model',
+    prompt: 'Enter model name (e.g., User or BlogPost)',
+    placeholder: 'User'
+  },
+  {
+    command: 'sails.generateHook',
+    type: 'hook',
+    prompt: 'Enter hook name (e.g., custom-hook)',
+    placeholder: 'custom-hook'
+  }
+]
+
 function activate(context) {
   const serverModule = vscode.Uri.joinPath(context.extensionUri, 'server.js')
 
@@ -46,6 +73,36 @@ function activate(context) {
     )
     console.error('Language client start error:', error)
   })
+
+  // Register generator commands for Command Palette
+  for (const gen of generators) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(gen.command, async (name) => {
+        // If name is provided (from quick fix), use it directly
+        // Otherwise, prompt the user for input
+        if (!name) {
+          name = await vscode.window.showInputBox({
+            prompt: gen.prompt,
+            placeHolder: gen.placeholder,
+            validateInput: (value) => {
+              if (!value || !value.trim()) {
+                return `Please enter a ${gen.type} name`
+              }
+              return null
+            }
+          })
+        }
+
+        if (!name) return // User cancelled
+
+        // Send command to language server
+        await client.sendRequest('workspace/executeCommand', {
+          command: gen.command,
+          arguments: [name]
+        })
+      })
+    )
+  }
   context.subscriptions.push(
     vscode.languages.registerDefinitionProvider(
       { language: 'javascript', pattern: '**/config/routes.js' },
