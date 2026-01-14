@@ -2,6 +2,12 @@
 
 All notable changes to the Sails.js VS Code extension will be documented in this file.
 
+## [0.6.1] - 2025-01-14
+
+### Fixed
+
+- Fixed false positive errors when files from other projects are opened in the same VS Code window
+
 ## [0.6.0] - 2025-01-11
 
 ### Added
