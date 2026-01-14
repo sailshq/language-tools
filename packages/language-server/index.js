@@ -42,6 +42,17 @@ const documents = new lsp.TextDocuments(TextDocument)
 const sailsParser = new SailsParser()
 let typeMap
 
+// Helper to check if a document is within the current project
+function isInProject(documentUri) {
+  if (!sailsParser.rootDir) return false
+  try {
+    const documentPath = decodeURIComponent(new URL(documentUri).pathname)
+    return documentPath.startsWith(sailsParser.rootDir)
+  } catch {
+    return false
+  }
+}
+
 connection.onInitialize(async (params) => {
   const rootPath = params.workspaceFolders?.[0]?.uri
     ? new URL(params.workspaceFolders[0].uri).pathname
@@ -92,20 +103,24 @@ connection.onDidChangeWatchedFiles(async (params) => {
     typeMap = await sailsParser.buildTypeMap()
     connection.console.log('Type map updated due to file create/delete.')
 
-    // Re-validate all open documents
+    // Re-validate all open documents in the current project
     for (const document of documents.all()) {
-      validateDocument(connection, document, typeMap)
+      if (isInProject(document.uri)) {
+        validateDocument(connection, document, typeMap)
+      }
     }
   }
 })
 
 documents.onDidOpen((open) => {
-  if (typeMap) {
+  if (typeMap && isInProject(open.document.uri)) {
     validateDocument(connection, open.document, typeMap)
   }
 })
 
 documents.onDidChangeContent(async (change) => {
+  if (!isInProject(change.document.uri)) return
+
   const documentUri = change.document.uri
   if (documentUri.includes('api/') || documentUri.includes('config')) {
     typeMap = await sailsParser.buildTypeMap()
@@ -119,7 +134,7 @@ documents.onDidChangeContent(async (change) => {
 
 connection.onDefinition(async (params) => {
   const document = documents.get(params.textDocument.uri)
-  if (!document) {
+  if (!document || !isInProject(params.textDocument.uri)) {
     return null
   }
 
@@ -158,7 +173,7 @@ connection.onDefinition(async (params) => {
 
 connection.onCompletion(async (params) => {
   const document = documents.get(params.textDocument.uri)
-  if (!document) {
+  if (!document || !isInProject(params.textDocument.uri)) {
     return null
   }
   const [
@@ -214,7 +229,12 @@ connection.onCompletion(async (params) => {
   return null
 })
 
-connection.onCodeAction((params) => codeActions.getCodeActions(params))
+connection.onCodeAction((params) => {
+  if (!isInProject(params.textDocument.uri)) {
+    return []
+  }
+  return codeActions.getCodeActions(params)
+})
 
 connection.onExecuteCommand(async (params) => {
   await codeActions.executeCommand(params, {

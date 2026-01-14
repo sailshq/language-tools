@@ -1,3 +1,4 @@
+const fsSync = require('fs')
 const fs = require('fs').promises
 const path = require('path')
 const acorn = require('acorn')
@@ -110,12 +111,14 @@ class SailsParser {
       for (const { routePattern, actionName } of actionsToParse) {
         const filePath =
           path.join(actionsRoot, ...actionName.split('/')) + '.js'
-        const actionInfo = await this.#parseAction(filePath)
+        const exists = fsSync.existsSync(filePath)
+        const actionInfo = exists ? await this.#parseAction(filePath) : {}
 
         routes[routePattern] = {
           action: {
             name: actionName,
             path: filePath,
+            exists,
             ...actionInfo
           }
         }
